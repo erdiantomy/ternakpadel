@@ -1,0 +1,10 @@
+html, body { margin: 0; padding: 0; }
+html, body, #root { height: 100%; }
+* { -webkit-font-smoothing: antialiased; }
+::-webkit-scrollbar { width: 0; height: 0; }
+button { -webkit-tap-highlight-color: transparent; }
+
+@keyframes tpFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tpUp { from { transform: translateY(26px); opacity: 0.4; } to { transform: translateY(0); opacity: 1; } }
+@keyframes tpPop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes tpPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }

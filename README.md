@@ -1,3 +1,28 @@
+# Ternak Padel
+
+Padel community matchmaking app — implemented as a Vite + React app from the
+Claude Design handoff bundle in this repo (see `project/` and `chats/`).
+
+## Run it
+
+```bash
+npm install
+npm run dev      # dev server
+npm run build    # production build → dist/
+```
+
+The app covers: WhatsApp-OTP onboarding, Home (match-day hero + community
+feed), Events (list → detail → QRIS/GoPay/OVO/Dana payment), live Matches with
+scorer mode and a win cascade (rank, streak, feed, timeline, share card),
+Rankings, Profile/Career, create-match FAB, and an iPad **host console**
+(Settings ⚙ → Open host console) with courtside scoring, round management and
+live standings. Theme/accent/type-pairing/density settings live in the in-app
+Settings sheet and persist to localStorage.
+
+---
+
+# Original handoff bundle notes
+
 # CODING AGENTS: READ THIS FIRST
 
 This is a **handoff bundle** from Claude Design (claude.ai/design).
