@@ -1,0 +1,2503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"></meta>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"></meta>
+<title>Ternak Padel — Interactive Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"></link>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous"></link>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Barlow:wght@400;600;700&family=Barlow+Condensed:wght@600;700&family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet"></link>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  html, body { margin: 0; padding: 0; }
+  * { -webkit-font-smoothing: antialiased; }
+  ::-webkit-scrollbar { width: 0; height: 0; }
+  @keyframes tpFade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes tpUp { from { transform: translateY(26px); opacity: 0.4; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes tpPop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes tpPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  button { -webkit-tap-highlight-color: transparent; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+// ===== inlined: wireframes/tweaks-panel.jsx =====
+// @ds-adherence-ignore -- omelette starter scaffold (raw elements/hex/px by design)
+
+/* BEGIN USAGE */
+// tweaks-panel.jsx
+// Reusable Tweaks shell + form-control helpers.
+// Exports (to window): useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider,
+//   TweakToggle, TweakRadio, TweakSelect, TweakText, TweakNumber, TweakColor, TweakButton.
+//
+// Owns the host protocol (listens for __activate_edit_mode / __deactivate_edit_mode,
+// posts __edit_mode_available / __edit_mode_set_keys / __edit_mode_dismissed) so
+// individual prototypes don't re-roll it. Ships a consistent set of controls so you
+// don't hand-draw <input type="range">, segmented radios, steppers, etc.
+//
+// Usage (in an HTML file that loads React + Babel):
+//
+//   const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+//     "primaryColor": "#D97757",
+//     "palette": ["#D97757", "#29261b", "#f6f4ef"],
+//     "fontSize": 16,
+//     "density": "regular",
+//     "dark": false
+//   }/*EDITMODE-END*/;
+//
+//   function App() {
+//     const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+//     return (
+//       <div style={{ fontSize: t.fontSize, color: t.primaryColor }}>
+//         Hello
+//         <TweaksPanel>
+//           <TweakSection label="Typography" />
+//           <TweakSlider label="Font size" value={t.fontSize} min={10} max={32} unit="px"
+//                        onChange={(v) => setTweak('fontSize', v)} />
+//           <TweakRadio  label="Density" value={t.density}
+//                        options={['compact', 'regular', 'comfy']}
+//                        onChange={(v) => setTweak('density', v)} />
+//           <TweakSection label="Theme" />
+//           <TweakColor  label="Primary" value={t.primaryColor}
+//                        options={['#D97757', '#2A6FDB', '#1F8A5B', '#7A5AE0']}
+//                        onChange={(v) => setTweak('primaryColor', v)} />
+//           <TweakColor  label="Palette" value={t.palette}
+//                        options={[['#D97757', '#29261b', '#f6f4ef'],
+//                                  ['#475569', '#0f172a', '#f1f5f9']]}
+//                        onChange={(v) => setTweak('palette', v)} />
+//           <TweakToggle label="Dark mode" value={t.dark}
+//                        onChange={(v) => setTweak('dark', v)} />
+//         </TweaksPanel>
+//       </div>
+//     );
+//   }
+//
+// TweakRadio is the segmented control for 2–3 short options (auto-falls-back to
+// TweakSelect past ~16/~10 chars per label); reach for TweakSelect directly when
+// options are many or long. For color tweaks always curate 3-4 options rather than
+// a free picker; an option can also be a whole 2–5 color palette (the stored value
+// is the array). The Tweak* controls are a floor, not a ceiling — build custom
+// controls inside the panel if a tweak calls for UI they don't cover.
+/* END USAGE */
+// ─────────────────────────────────────────────────────────────────────────────
+
+const __TWEAKS_STYLE = `
+  .twk-panel{position:fixed;right:16px;bottom:16px;z-index:2147483646;width:280px;
+    max-height:calc(100vh - 32px);display:flex;flex-direction:column;
+    transform:scale(var(--dc-inv-zoom,1));transform-origin:bottom right;
+    background:rgba(250,249,247,.78);color:#29261b;
+    -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
+    border:.5px solid rgba(255,255,255,.6);border-radius:14px;
+    box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 12px 40px rgba(0,0,0,.18);
+    font:11.5px/1.4 ui-sans-serif,system-ui,-apple-system,sans-serif;overflow:hidden}
+  .twk-hd{display:flex;align-items:center;justify-content:space-between;
+    padding:10px 8px 10px 14px;cursor:move;user-select:none}
+  .twk-hd b{font-size:12px;font-weight:600;letter-spacing:.01em}
+  .twk-x{appearance:none;border:0;background:transparent;color:rgba(41,38,27,.55);
+    width:22px;height:22px;border-radius:6px;cursor:default;font-size:13px;line-height:1}
+  .twk-x:hover{background:rgba(0,0,0,.06);color:#29261b}
+  .twk-body{padding:2px 14px 14px;display:flex;flex-direction:column;gap:10px;
+    overflow-y:auto;overflow-x:hidden;min-height:0;
+    scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.15) transparent}
+  .twk-body::-webkit-scrollbar{width:8px}
+  .twk-body::-webkit-scrollbar-track{background:transparent;margin:2px}
+  .twk-body::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15);border-radius:4px;
+    border:2px solid transparent;background-clip:content-box}
+  .twk-body::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.25);
+    border:2px solid transparent;background-clip:content-box}
+  .twk-row{display:flex;flex-direction:column;gap:5px}
+  .twk-row-h{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}
+  .twk-lbl{display:flex;justify-content:space-between;align-items:baseline;
+    color:rgba(41,38,27,.72)}
+  .twk-lbl>span:first-child{font-weight:500}
+  .twk-val{color:rgba(41,38,27,.5);font-variant-numeric:tabular-nums}
+
+  .twk-sect{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+    color:rgba(41,38,27,.45);padding:10px 0 0}
+  .twk-sect:first-child{padding-top:0}
+
+  .twk-field{appearance:none;box-sizing:border-box;width:100%;min-width:0;height:26px;padding:0 8px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:7px;
+    background:rgba(255,255,255,.6);color:inherit;font:inherit;outline:none}
+  .twk-field:focus{border-color:rgba(0,0,0,.25);background:rgba(255,255,255,.85)}
+  select.twk-field{padding-right:22px;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='rgba(0,0,0,.5)' d='M0 0h10L5 6z'/></svg>");
+    background-repeat:no-repeat;background-position:right 8px center}
+
+  .twk-slider{appearance:none;-webkit-appearance:none;width:100%;height:4px;margin:6px 0;
+    border-radius:999px;background:rgba(0,0,0,.12);outline:none}
+  .twk-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+    width:14px;height:14px;border-radius:50%;background:#fff;
+    border:.5px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.2);cursor:default}
+  .twk-slider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;
+    background:#fff;border:.5px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.2);cursor:default}
+
+  .twk-seg{position:relative;display:flex;padding:2px;border-radius:8px;
+    background:rgba(0,0,0,.06);user-select:none}
+  .twk-seg-thumb{position:absolute;top:2px;bottom:2px;border-radius:6px;
+    background:rgba(255,255,255,.9);box-shadow:0 1px 2px rgba(0,0,0,.12);
+    transition:left .15s cubic-bezier(.3,.7,.4,1),width .15s}
+  .twk-seg.dragging .twk-seg-thumb{transition:none}
+  .twk-seg button{appearance:none;position:relative;z-index:1;flex:1;border:0;
+    background:transparent;color:inherit;font:inherit;font-weight:500;min-height:22px;
+    border-radius:6px;cursor:default;padding:4px 6px;line-height:1.2;
+    overflow-wrap:anywhere}
+
+  .twk-toggle{position:relative;width:32px;height:18px;border:0;border-radius:999px;
+    background:rgba(0,0,0,.15);transition:background .15s;cursor:default;padding:0}
+  .twk-toggle[data-on="1"]{background:#34c759}
+  .twk-toggle i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;
+    background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+  .twk-toggle[data-on="1"] i{transform:translateX(14px)}
+
+  .twk-num{display:flex;align-items:center;box-sizing:border-box;min-width:0;height:26px;padding:0 0 0 8px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:7px;background:rgba(255,255,255,.6)}
+  .twk-num-lbl{font-weight:500;color:rgba(41,38,27,.6);cursor:ew-resize;
+    user-select:none;padding-right:8px}
+  .twk-num input{flex:1;min-width:0;height:100%;border:0;background:transparent;
+    font:inherit;font-variant-numeric:tabular-nums;text-align:right;padding:0 8px 0 0;
+    outline:none;color:inherit;-moz-appearance:textfield}
+  .twk-num input::-webkit-inner-spin-button,.twk-num input::-webkit-outer-spin-button{
+    -webkit-appearance:none;margin:0}
+  .twk-num-unit{padding-right:8px;color:rgba(41,38,27,.45)}
+
+  .twk-btn{appearance:none;height:26px;padding:0 12px;border:0;border-radius:7px;
+    background:rgba(0,0,0,.78);color:#fff;font:inherit;font-weight:500;cursor:default}
+  .twk-btn:hover{background:rgba(0,0,0,.88)}
+  .twk-btn.secondary{background:rgba(0,0,0,.06);color:inherit}
+  .twk-btn.secondary:hover{background:rgba(0,0,0,.1)}
+
+  .twk-swatch{appearance:none;-webkit-appearance:none;width:56px;height:22px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:6px;padding:0;cursor:default;
+    background:transparent;flex-shrink:0}
+  .twk-swatch::-webkit-color-swatch-wrapper{padding:0}
+  .twk-swatch::-webkit-color-swatch{border:0;border-radius:5.5px}
+  .twk-swatch::-moz-color-swatch{border:0;border-radius:5.5px}
+
+  .twk-chips{display:flex;gap:6px}
+  .twk-chip{position:relative;appearance:none;flex:1;min-width:0;height:46px;
+    padding:0;border:0;border-radius:6px;overflow:hidden;cursor:default;
+    box-shadow:0 0 0 .5px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.06);
+    transition:transform .12s cubic-bezier(.3,.7,.4,1),box-shadow .12s}
+  .twk-chip:hover{transform:translateY(-1px);
+    box-shadow:0 0 0 .5px rgba(0,0,0,.18),0 4px 10px rgba(0,0,0,.12)}
+  .twk-chip[data-on="1"]{box-shadow:0 0 0 1.5px rgba(0,0,0,.85),
+    0 2px 6px rgba(0,0,0,.15)}
+  .twk-chip>span{position:absolute;top:0;bottom:0;right:0;width:34%;
+    display:flex;flex-direction:column;box-shadow:-1px 0 0 rgba(0,0,0,.1)}
+  .twk-chip>span>i{flex:1;box-shadow:0 -1px 0 rgba(0,0,0,.1)}
+  .twk-chip>span>i:first-child{box-shadow:none}
+  .twk-chip svg{position:absolute;top:6px;left:6px;width:13px;height:13px;
+    filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
+`;
+
+// ── useTweaks ───────────────────────────────────────────────────────────────
+// Single source of truth for tweak values. setTweak persists via the host
+// (__edit_mode_set_keys → host rewrites the EDITMODE block on disk).
+function useTweaks(defaults) {
+  const [values, setValues] = React.useState(defaults);
+  // Accepts either setTweak('key', value) or setTweak({ key: value, ... }) so a
+  // useState-style call doesn't write a "[object Object]" key into the persisted
+  // JSON block.
+  const setTweak = React.useCallback((keyOrEdits, val) => {
+    const edits = typeof keyOrEdits === 'object' && keyOrEdits !== null
+      ? keyOrEdits : { [keyOrEdits]: val };
+    setValues((prev) => ({ ...prev, ...edits }));
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits }, '*');
+    // Same-window signal so in-page listeners (deck-stage rail thumbnails)
+    // can react — the parent message only reaches the host, not peers.
+    window.dispatchEvent(new CustomEvent('tweakchange', { detail: edits }));
+  }, []);
+  return [values, setTweak];
+}
+
+// ── TweaksPanel ─────────────────────────────────────────────────────────────
+// Floating shell. Registers the protocol listener BEFORE announcing
+// availability — if the announce ran first, the host's activate could land
+// before our handler exists and the toolbar toggle would silently no-op.
+// The close button posts __edit_mode_dismissed so the host's toolbar toggle
+// flips off in lockstep; the host echoes __deactivate_edit_mode back which
+// is what actually hides the panel.
+function TweaksPanel({ title = 'Tweaks', children }) {
+  const [open, setOpen] = React.useState(false);
+  const dragRef = React.useRef(null);
+  const offsetRef = React.useRef({ x: 16, y: 16 });
+  const PAD = 16;
+
+  const clampToViewport = React.useCallback(() => {
+    const panel = dragRef.current;
+    if (!panel) return;
+    const w = panel.offsetWidth, h = panel.offsetHeight;
+    const maxRight = Math.max(PAD, window.innerWidth - w - PAD);
+    const maxBottom = Math.max(PAD, window.innerHeight - h - PAD);
+    offsetRef.current = {
+      x: Math.min(maxRight, Math.max(PAD, offsetRef.current.x)),
+      y: Math.min(maxBottom, Math.max(PAD, offsetRef.current.y)),
+    };
+    panel.style.right = offsetRef.current.x + 'px';
+    panel.style.bottom = offsetRef.current.y + 'px';
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) return;
+    clampToViewport();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', clampToViewport);
+      return () => window.removeEventListener('resize', clampToViewport);
+    }
+    const ro = new ResizeObserver(clampToViewport);
+    ro.observe(document.documentElement);
+    return () => ro.disconnect();
+  }, [open, clampToViewport]);
+
+  React.useEffect(() => {
+    const onMsg = (e) => {
+      const t = e?.data?.type;
+      if (t === '__activate_edit_mode') setOpen(true);
+      else if (t === '__deactivate_edit_mode') setOpen(false);
+    };
+    window.addEventListener('message', onMsg);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  const dismiss = () => {
+    setOpen(false);
+    window.parent.postMessage({ type: '__edit_mode_dismissed' }, '*');
+  };
+
+  const onDragStart = (e) => {
+    const panel = dragRef.current;
+    if (!panel) return;
+    const r = panel.getBoundingClientRect();
+    const sx = e.clientX, sy = e.clientY;
+    const startRight = window.innerWidth - r.right;
+    const startBottom = window.innerHeight - r.bottom;
+    const move = (ev) => {
+      offsetRef.current = {
+        x: startRight - (ev.clientX - sx),
+        y: startBottom - (ev.clientY - sy),
+      };
+      clampToViewport();
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+
+  if (!open) return null;
+  return (
+    <>
+      <style>{__TWEAKS_STYLE}</style>
+      <div ref={dragRef} className="twk-panel" data-omelette-chrome=""
+           style={{ right: offsetRef.current.x, bottom: offsetRef.current.y }}>
+        <div className="twk-hd" onMouseDown={onDragStart}>
+          <b>{title}</b>
+          <button className="twk-x" aria-label="Close tweaks"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={dismiss}>✕</button>
+        </div>
+        <div className="twk-body">
+          {children}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Layout helpers ──────────────────────────────────────────────────────────
+
+function TweakSection({ label, children }) {
+  return (
+    <>
+      <div className="twk-sect">{label}</div>
+      {children}
+    </>
+  );
+}
+
+function TweakRow({ label, value, children, inline = false }) {
+  return (
+    <div className={inline ? 'twk-row twk-row-h' : 'twk-row'}>
+      <div className="twk-lbl">
+        <span>{label}</span>
+        {value != null && <span className="twk-val">{value}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// ── Controls ────────────────────────────────────────────────────────────────
+
+function TweakSlider({ label, value, min = 0, max = 100, step = 1, unit = '', onChange }) {
+  return (
+    <TweakRow label={label} value={`${value}${unit}`}>
+      <input type="range" className="twk-slider" min={min} max={max} step={step}
+             value={value} onChange={(e) => onChange(Number(e.target.value))} />
+    </TweakRow>
+  );
+}
+
+function TweakToggle({ label, value, onChange }) {
+  return (
+    <div className="twk-row twk-row-h">
+      <div className="twk-lbl"><span>{label}</span></div>
+      <button type="button" className="twk-toggle" data-on={value ? '1' : '0'}
+              role="switch" aria-checked={!!value}
+              onClick={() => onChange(!value)}><i /></button>
+    </div>
+  );
+}
+
+function TweakRadio({ label, value, options, onChange }) {
+  const trackRef = React.useRef(null);
+  const [dragging, setDragging] = React.useState(false);
+  // The active value is read by pointer-move handlers attached for the lifetime
+  // of a drag — ref it so a stale closure doesn't fire onChange for every move.
+  const valueRef = React.useRef(value);
+  valueRef.current = value;
+
+  // Segments wrap mid-word once per-segment width runs out. The track is
+  // ~248px (280 panel − 28 body pad − 4 seg pad), each button loses 12px
+  // to its own padding, and 11.5px system-ui averages ~6.3px/char — so 2
+  // options fit ~16 chars each, 3 fit ~10. Past that (or >3 options), fall
+  // back to a dropdown rather than wrap.
+  const labelLen = (o) => String(typeof o === 'object' ? o.label : o).length;
+  const maxLen = options.reduce((m, o) => Math.max(m, labelLen(o)), 0);
+  const fitsAsSegments = maxLen <= ({ 2: 16, 3: 10 }[options.length] ?? 0);
+  if (!fitsAsSegments) {
+    // <select> emits strings — map back to the original option value so the
+    // fallback stays type-preserving (numbers, booleans) like the segment path.
+    const resolve = (s) => {
+      const m = options.find((o) => String(typeof o === 'object' ? o.value : o) === s);
+      return m === undefined ? s : typeof m === 'object' ? m.value : m;
+    };
+    return <TweakSelect label={label} value={value} options={options}
+                        onChange={(s) => onChange(resolve(s))} />;
+  }
+  const opts = options.map((o) => (typeof o === 'object' ? o : { value: o, label: o }));
+  const idx = Math.max(0, opts.findIndex((o) => o.value === value));
+  const n = opts.length;
+
+  const segAt = (clientX) => {
+    const r = trackRef.current.getBoundingClientRect();
+    const inner = r.width - 4;
+    const i = Math.floor(((clientX - r.left - 2) / inner) * n);
+    return opts[Math.max(0, Math.min(n - 1, i))].value;
+  };
+
+  const onPointerDown = (e) => {
+    setDragging(true);
+    const v0 = segAt(e.clientX);
+    if (v0 !== valueRef.current) onChange(v0);
+    const move = (ev) => {
+      if (!trackRef.current) return;
+      const v = segAt(ev.clientX);
+      if (v !== valueRef.current) onChange(v);
+    };
+    const up = () => {
+      setDragging(false);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
+  return (
+    <TweakRow label={label}>
+      <div ref={trackRef} role="radiogroup" onPointerDown={onPointerDown}
+           className={dragging ? 'twk-seg dragging' : 'twk-seg'}>
+        <div className="twk-seg-thumb"
+             style={{ left: `calc(2px + ${idx} * (100% - 4px) / ${n})`,
+                      width: `calc((100% - 4px) / ${n})` }} />
+        {opts.map((o) => (
+          <button key={o.value} type="button" role="radio" aria-checked={o.value === value}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </TweakRow>
+  );
+}
+
+function TweakSelect({ label, value, options, onChange }) {
+  return (
+    <TweakRow label={label}>
+      <select className="twk-field" value={value} onChange={(e) => onChange(e.target.value)}>
+        {options.map((o) => {
+          const v = typeof o === 'object' ? o.value : o;
+          const l = typeof o === 'object' ? o.label : o;
+          return <option key={v} value={v}>{l}</option>;
+        })}
+      </select>
+    </TweakRow>
+  );
+}
+
+function TweakText({ label, value, placeholder, onChange }) {
+  return (
+    <TweakRow label={label}>
+      <input className="twk-field" type="text" value={value} placeholder={placeholder}
+             onChange={(e) => onChange(e.target.value)} />
+    </TweakRow>
+  );
+}
+
+function TweakNumber({ label, value, min, max, step = 1, unit = '', onChange }) {
+  const clamp = (n) => {
+    if (min != null && n < min) return min;
+    if (max != null && n > max) return max;
+    return n;
+  };
+  const startRef = React.useRef({ x: 0, val: 0 });
+  const onScrubStart = (e) => {
+    e.preventDefault();
+    startRef.current = { x: e.clientX, val: value };
+    const decimals = (String(step).split('.')[1] || '').length;
+    const move = (ev) => {
+      const dx = ev.clientX - startRef.current.x;
+      const raw = startRef.current.val + dx * step;
+      const snapped = Math.round(raw / step) * step;
+      onChange(clamp(Number(snapped.toFixed(decimals))));
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+  return (
+    <div className="twk-num">
+      <span className="twk-num-lbl" onPointerDown={onScrubStart}>{label}</span>
+      <input type="number" value={value} min={min} max={max} step={step}
+             onChange={(e) => onChange(clamp(Number(e.target.value)))} />
+      {unit && <span className="twk-num-unit">{unit}</span>}
+    </div>
+  );
+}
+
+// Relative-luminance contrast pick — checkmarks drawn over a swatch need to
+// read on both #111 and #fafafa without per-option configuration. Hex input
+// only (#rgb / #rrggbb); named or rgb()/hsl() colors fall through to "light".
+function __twkIsLight(hex) {
+  const h = String(hex).replace('#', '');
+  const x = h.length === 3 ? h.replace(/./g, (c) => c + c) : h.padEnd(6, '0');
+  const n = parseInt(x.slice(0, 6), 16);
+  if (Number.isNaN(n)) return true;
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return r * 299 + g * 587 + b * 114 > 148000;
+}
+
+const __TwkCheck = ({ light }) => (
+  <svg viewBox="0 0 14 14" aria-hidden="true">
+    <path d="M3 7.2 5.8 10 11 4.2" fill="none" strokeWidth="2.2"
+          strokeLinecap="round" strokeLinejoin="round"
+          stroke={light ? 'rgba(0,0,0,.78)' : '#fff'} />
+  </svg>
+);
+
+// TweakColor — curated color/palette picker. Each option is either a single
+// hex string or an array of 1-5 hex strings; the card adapts — a lone color
+// renders solid, a palette renders colors[0] as the hero (left ~2/3) with the
+// rest stacked in a sharp column on the right. onChange emits the
+// option in the shape it was passed (string stays string, array stays array).
+// Without options it falls back to the native color input for back-compat.
+function TweakColor({ label, value, options, onChange }) {
+  if (!options || !options.length) {
+    return (
+      <div className="twk-row twk-row-h">
+        <div className="twk-lbl"><span>{label}</span></div>
+        <input type="color" className="twk-swatch" value={value}
+               onChange={(e) => onChange(e.target.value)} />
+      </div>
+    );
+  }
+  // Native <input type=color> emits lowercase hex per the HTML spec, so
+  // compare case-insensitively. String() guards JSON.stringify(undefined),
+  // which returns the primitive undefined (no .toLowerCase).
+  const key = (o) => String(JSON.stringify(o)).toLowerCase();
+  const cur = key(value);
+  return (
+    <TweakRow label={label}>
+      <div className="twk-chips" role="radiogroup">
+        {options.map((o, i) => {
+          const colors = Array.isArray(o) ? o : [o];
+          const [hero, ...rest] = colors;
+          const sup = rest.slice(0, 4);
+          const on = key(o) === cur;
+          return (
+            <button key={i} type="button" className="twk-chip" role="radio"
+                    aria-checked={on} data-on={on ? '1' : '0'}
+                    aria-label={colors.join(', ')} title={colors.join(' · ')}
+                    style={{ background: hero }}
+                    onClick={() => onChange(o)}>
+              {sup.length > 0 && (
+                <span>
+                  {sup.map((c, j) => <i key={j} style={{ background: c }} />)}
+                </span>
+              )}
+              {on && <__TwkCheck light={__twkIsLight(hero)} />}
+            </button>
+          );
+        })}
+      </div>
+    </TweakRow>
+  );
+}
+
+function TweakButton({ label, onClick, secondary = false }) {
+  return (
+    <button type="button" className={secondary ? 'twk-btn secondary' : 'twk-btn'}
+            onClick={onClick}>{label}</button>
+  );
+}
+
+Object.assign(window, {
+  useTweaks, TweaksPanel, TweakSection, TweakRow,
+  TweakSlider, TweakToggle, TweakRadio, TweakSelect,
+  TweakText, TweakNumber, TweakColor, TweakButton,
+});
+
+</script>
+<script type="text/babel">
+// ===== inlined: prototype/ios-frame.jsx =====
+// @ds-adherence-ignore -- omelette starter scaffold (raw elements/hex/px by design)
+
+/* BEGIN USAGE */
+// iOS.jsx — Simplified iOS 26 (Liquid Glass) device frame
+// Based on the iOS 26 UI Kit + Figma status bar spec. No assets, no deps.
+// Exports (to window): IOSDevice, IOSStatusBar, IOSNavBar, IOSGlassPill, IOSList, IOSListRow, IOSKeyboard
+//
+// Usage — wrap your screen content in <IOSDevice> to get the bezel, status bar
+// and home indicator (props: title, dark, keyboard):
+//
+//   <IOSDevice title="Settings">
+//     ...your screen content...
+//   </IOSDevice>
+//   <IOSDevice dark title="Search" keyboard>…</IOSDevice>
+/* END USAGE */
+
+// ─────────────────────────────────────────────────────────────
+// Status bar
+// ─────────────────────────────────────────────────────────────
+function IOSStatusBar({ dark = false, time = '9:41' }) {
+  const c = dark ? '#fff' : '#000';
+  return (
+    <div style={{
+      display: 'flex', gap: 154, alignItems: 'center', justifyContent: 'center',
+      padding: '21px 24px 19px', boxSizing: 'border-box',
+      position: 'relative', zIndex: 20, width: '100%',
+    }}>
+      <div style={{ flex: 1, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 1.5 }}>
+        <span style={{
+          fontFamily: '-apple-system, "SF Pro", system-ui', fontWeight: 590,
+          fontSize: 17, lineHeight: '22px', color: c,
+        }}>{time}</span>
+      </div>
+      <div style={{ flex: 1, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, paddingTop: 1, paddingRight: 1 }}>
+        <svg width="19" height="12" viewBox="0 0 19 12">
+          <rect x="0" y="7.5" width="3.2" height="4.5" rx="0.7" fill={c}/>
+          <rect x="4.8" y="5" width="3.2" height="7" rx="0.7" fill={c}/>
+          <rect x="9.6" y="2.5" width="3.2" height="9.5" rx="0.7" fill={c}/>
+          <rect x="14.4" y="0" width="3.2" height="12" rx="0.7" fill={c}/>
+        </svg>
+        <svg width="17" height="12" viewBox="0 0 17 12">
+          <path d="M8.5 3.2C10.8 3.2 12.9 4.1 14.4 5.6L15.5 4.5C13.7 2.7 11.2 1.5 8.5 1.5C5.8 1.5 3.3 2.7 1.5 4.5L2.6 5.6C4.1 4.1 6.2 3.2 8.5 3.2Z" fill={c}/>
+          <path d="M8.5 6.8C9.9 6.8 11.1 7.3 12 8.2L13.1 7.1C11.8 5.9 10.2 5.1 8.5 5.1C6.8 5.1 5.2 5.9 3.9 7.1L5 8.2C5.9 7.3 7.1 6.8 8.5 6.8Z" fill={c}/>
+          <circle cx="8.5" cy="10.5" r="1.5" fill={c}/>
+        </svg>
+        <svg width="27" height="13" viewBox="0 0 27 13">
+          <rect x="0.5" y="0.5" width="23" height="12" rx="3.5" stroke={c} strokeOpacity="0.35" fill="none"/>
+          <rect x="2" y="2" width="20" height="9" rx="2" fill={c}/>
+          <path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill={c} fillOpacity="0.4"/>
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Liquid glass pill — blur + tint + shine
+// ─────────────────────────────────────────────────────────────
+function IOSGlassPill({ children, dark = false, style = {} }) {
+  return (
+    <div style={{
+      height: 44, minWidth: 44, borderRadius: 9999,
+      position: 'relative', overflow: 'hidden',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      boxShadow: dark
+        ? '0 2px 6px rgba(0,0,0,0.35), 0 6px 16px rgba(0,0,0,0.2)'
+        : '0 1px 3px rgba(0,0,0,0.07), 0 3px 10px rgba(0,0,0,0.06)',
+      ...style,
+    }}>
+      {/* blur + tint */}
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: 9999,
+        backdropFilter: 'blur(12px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(12px) saturate(180%)',
+        background: dark ? 'rgba(120,120,128,0.28)' : 'rgba(255,255,255,0.5)',
+      }} />
+      {/* shine */}
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: 9999,
+        boxShadow: dark
+          ? 'inset 1.5px 1.5px 1px rgba(255,255,255,0.15), inset -1px -1px 1px rgba(255,255,255,0.08)'
+          : 'inset 1.5px 1.5px 1px rgba(255,255,255,0.7), inset -1px -1px 1px rgba(255,255,255,0.4)',
+        border: dark ? '0.5px solid rgba(255,255,255,0.15)' : '0.5px solid rgba(0,0,0,0.06)',
+      }} />
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', padding: '0 4px' }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Navigation bar — glass pills + large title
+// ─────────────────────────────────────────────────────────────
+function IOSNavBar({ title = 'Title', dark = false, trailingIcon = true }) {
+  const muted = dark ? 'rgba(255,255,255,0.6)' : '#404040';
+  const text = dark ? '#fff' : '#000';
+  const pillIcon = (content) => (
+    <IOSGlassPill dark={dark}>
+      <div style={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {content}
+      </div>
+    </IOSGlassPill>
+  );
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', gap: 10,
+      paddingTop: 62, paddingBottom: 10, position: 'relative', zIndex: 5,
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 16px',
+      }}>
+        {/* back chevron */}
+        {pillIcon(
+          <svg width="12" height="20" viewBox="0 0 12 20" fill="none" style={{ marginLeft: -1 }}>
+            <path d="M10 2L2 10l8 8" stroke={muted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        )}
+        {/* trailing ellipsis */}
+        {trailingIcon && pillIcon(
+          <svg width="22" height="6" viewBox="0 0 22 6">
+            <circle cx="3" cy="3" r="2.5" fill={muted}/>
+            <circle cx="11" cy="3" r="2.5" fill={muted}/>
+            <circle cx="19" cy="3" r="2.5" fill={muted}/>
+          </svg>
+        )}
+      </div>
+      {/* large title */}
+      <div style={{
+        padding: '0 16px',
+        fontFamily: '-apple-system, system-ui',
+        fontSize: 34, fontWeight: 700, lineHeight: '41px',
+        color: text, letterSpacing: 0.4,
+      }}>{title}</div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Grouped list (inset card, r:26) + row (52px)
+// ─────────────────────────────────────────────────────────────
+function IOSListRow({ title, detail, icon, chevron = true, isLast = false, dark = false }) {
+  const text = dark ? '#fff' : '#000';
+  const sec = dark ? 'rgba(235,235,245,0.6)' : 'rgba(60,60,67,0.6)';
+  const ter = dark ? 'rgba(235,235,245,0.3)' : 'rgba(60,60,67,0.3)';
+  const sep = dark ? 'rgba(84,84,88,0.65)' : 'rgba(60,60,67,0.12)';
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', minHeight: 52,
+      padding: '0 16px', position: 'relative',
+      fontFamily: '-apple-system, system-ui', fontSize: 17,
+      letterSpacing: -0.43,
+    }}>
+      {icon && (
+        <div style={{
+          width: 30, height: 30, borderRadius: 7, background: icon,
+          marginRight: 12, flexShrink: 0,
+        }} />
+      )}
+      <div style={{ flex: 1, color: text }}>{title}</div>
+      {detail && <span style={{ color: sec, marginRight: 6 }}>{detail}</span>}
+      {chevron && (
+        <svg width="8" height="14" viewBox="0 0 8 14" style={{ flexShrink: 0 }}>
+          <path d="M1 1l6 6-6 6" stroke={ter} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )}
+      {!isLast && (
+        <div style={{
+          position: 'absolute', bottom: 0, right: 0,
+          left: icon ? 58 : 16, height: 0.5, background: sep,
+        }} />
+      )}
+    </div>
+  );
+}
+
+function IOSList({ header, children, dark = false }) {
+  const hc = dark ? 'rgba(235,235,245,0.6)' : 'rgba(60,60,67,0.6)';
+  const bg = dark ? '#1C1C1E' : '#fff';
+  return (
+    <div>
+      {header && (
+        <div style={{
+          fontFamily: '-apple-system, system-ui', fontSize: 13,
+          color: hc, textTransform: 'uppercase',
+          padding: '8px 36px 6px', letterSpacing: -0.08,
+        }}>{header}</div>
+      )}
+      <div style={{
+        background: bg, borderRadius: 26,
+        margin: '0 16px', overflow: 'hidden',
+      }}>{children}</div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Device frame
+// ─────────────────────────────────────────────────────────────
+function IOSDevice({
+  children, width = 402, height = 874, dark = false,
+  title, keyboard = false,
+}) {
+  return (
+    <div style={{
+      width, height, borderRadius: 48, overflow: 'hidden',
+      position: 'relative', background: dark ? '#000' : '#F2F2F7',
+      boxShadow: '0 40px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.12)',
+      fontFamily: '-apple-system, system-ui, sans-serif',
+      WebkitFontSmoothing: 'antialiased',
+    }}>
+      {/* dynamic island */}
+      <div style={{
+        position: 'absolute', top: 11, left: '50%', transform: 'translateX(-50%)',
+        width: 126, height: 37, borderRadius: 24, background: '#000', zIndex: 50,
+      }} />
+      {/* status bar (absolute) */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
+        <IOSStatusBar dark={dark} />
+      </div>
+      {/* nav + content */}
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        {title !== undefined && <IOSNavBar title={title} dark={dark} />}
+        <div style={{ flex: 1, overflow: 'auto' }}>{children}</div>
+        {keyboard && <IOSKeyboard dark={dark} />}
+      </div>
+      {/* home indicator — always on top */}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 60,
+        height: 34, display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
+        paddingBottom: 8, pointerEvents: 'none',
+      }}>
+        <div style={{
+          width: 139, height: 5, borderRadius: 100,
+          background: dark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.25)',
+        }} />
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Keyboard — iOS 26 liquid glass
+// ─────────────────────────────────────────────────────────────
+function IOSKeyboard({ dark = false }) {
+  const glyph = dark ? 'rgba(255,255,255,0.7)' : '#595959';
+  const sugg = dark ? 'rgba(255,255,255,0.6)' : '#333';
+  const keyBg = dark ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.85)';
+
+  // special-key icons
+  const icons = {
+    shift: <svg width="19" height="17" viewBox="0 0 19 17"><path d="M9.5 1L1 9.5h4.5V16h8V9.5H18L9.5 1z" fill={glyph}/></svg>,
+    del: <svg width="23" height="17" viewBox="0 0 23 17"><path d="M7 1h13a2 2 0 012 2v11a2 2 0 01-2 2H7l-6-7.5L7 1z" fill="none" stroke={glyph} strokeWidth="1.6" strokeLinejoin="round"/><path d="M10 5l7 7M17 5l-7 7" stroke={glyph} strokeWidth="1.6" strokeLinecap="round"/></svg>,
+    ret: <svg width="20" height="14" viewBox="0 0 20 14"><path d="M18 1v6H4m0 0l4-4M4 7l4 4" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  };
+
+  const key = (content, { w, flex, ret, fs = 25, k } = {}) => (
+    <div key={k} style={{
+      height: 42, borderRadius: 8.5,
+      flex: flex ? 1 : undefined, width: w, minWidth: 0,
+      background: ret ? '#08f' : keyBg,
+      boxShadow: '0 1px 0 rgba(0,0,0,0.075)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: '-apple-system, "SF Compact", system-ui',
+      fontSize: fs, fontWeight: 458, color: ret ? '#fff' : glyph,
+    }}>{content}</div>
+  );
+
+  const row = (keys, pad = 0) => (
+    <div style={{ display: 'flex', gap: 6.5, justifyContent: 'center', padding: `0 ${pad}px` }}>
+      {keys.map(l => key(l, { flex: true, k: l }))}
+    </div>
+  );
+
+  return (
+    <div style={{
+      position: 'relative', zIndex: 15, borderRadius: 27, overflow: 'hidden',
+      padding: '11px 0 2px',
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      boxShadow: dark
+        ? '0 -2px 20px rgba(0,0,0,0.09)'
+        : '0 -1px 6px rgba(0,0,0,0.018), 0 -3px 20px rgba(0,0,0,0.012)',
+    }}>
+      {/* liquid glass bg — same recipe as nav pills */}
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: 27,
+        backdropFilter: 'blur(12px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(12px) saturate(180%)',
+        background: dark ? 'rgba(120,120,128,0.14)' : 'rgba(255,255,255,0.25)',
+      }} />
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: 27,
+        boxShadow: dark
+          ? 'inset 1.5px 1.5px 1px rgba(255,255,255,0.15)'
+          : 'inset 1.5px 1.5px 1px rgba(255,255,255,0.7), inset -1px -1px 1px rgba(255,255,255,0.4)',
+        border: dark ? '0.5px solid rgba(255,255,255,0.15)' : '0.5px solid rgba(0,0,0,0.06)',
+        pointerEvents: 'none',
+      }} />
+
+      {/* autocorrect bar */}
+      <div style={{
+        display: 'flex', gap: 20, alignItems: 'center',
+        padding: '8px 22px 13px', width: '100%', boxSizing: 'border-box',
+        position: 'relative',
+      }}>
+        {['"The"', 'the', 'to'].map((w, i) => (
+          <React.Fragment key={i}>
+            {i > 0 && <div style={{ width: 1, height: 25, background: '#ccc', opacity: 0.3 }} />}
+            <div style={{
+              flex: 1, textAlign: 'center',
+              fontFamily: '-apple-system, system-ui', fontSize: 17,
+              color: sugg, letterSpacing: -0.43, lineHeight: '22px',
+            }}>{w}</div>
+          </React.Fragment>
+        ))}
+      </div>
+
+      {/* key layout */}
+      <div style={{
+        display: 'flex', flexDirection: 'column', gap: 13,
+        padding: '0 6.5px', width: '100%', boxSizing: 'border-box',
+        position: 'relative',
+      }}>
+        {row(['q','w','e','r','t','y','u','i','o','p'])}
+        {row(['a','s','d','f','g','h','j','k','l'], 20)}
+        <div style={{ display: 'flex', gap: 14.25, alignItems: 'center' }}>
+          {key(icons.shift, { w: 45, k: 'shift' })}
+          <div style={{ display: 'flex', gap: 6.5, flex: 1 }}>
+            {['z','x','c','v','b','n','m'].map(l => key(l, { flex: true, k: l }))}
+          </div>
+          {key(icons.del, { w: 45, k: 'del' })}
+        </div>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          {key('ABC', { w: 92.25, fs: 18, k: 'abc' })}
+          {key('', { flex: true, k: 'space' })}
+          {key(icons.ret, { w: 92.25, ret: true, k: 'ret' })}
+        </div>
+      </div>
+
+      {/* bottom spacer (emoji+mic area, icons omitted) */}
+      <div style={{ height: 56, width: '100%', position: 'relative' }} />
+    </div>
+  );
+}
+
+Object.assign(window, {
+  IOSDevice, IOSStatusBar, IOSNavBar, IOSGlassPill, IOSList, IOSListRow, IOSKeyboard,
+});
+
+</script>
+<script type="text/babel">
+// ===== inlined: prototype/data.jsx =====
+// Ternak Padel prototype — seed data (Indonesian padel community flavor)
+
+const TP_DATA = {
+  me: {
+    name: "Tomy Santoso",
+    user: "@tomy",
+    initials: "TS",
+    skill: "Intermediate",
+    side: "Left",
+    city: "Jakarta",
+    memberSince: "2024",
+  },
+  players: [
+    { id: "rina", name: "Rina Wijaya", initials: "RW", pts: 486 },
+    { id: "eko", name: "Eko Prasetyo", initials: "EP", pts: 471 },
+    { id: "maya", name: "Maya Lestari", initials: "ML", pts: 455 },
+    { id: "dimas", name: "Dimas Putra", initials: "DP", pts: 431 },
+    { id: "fitri", name: "Fitri Handayani", initials: "FH", pts: 419 },
+    { id: "bayu", name: "Bayu Nugroho", initials: "BN", pts: 412 },
+    { id: "sari", name: "Sari Kusuma", initials: "SK", pts: 398 },
+    { id: "me", name: "Tomy Santoso", initials: "TS", pts: 380, me: true },
+    { id: "andre", name: "Andre Halim", initials: "AH", pts: 371 },
+    { id: "dina", name: "Dina Maharani", initials: "DM", pts: 360 },
+    { id: "raka", name: "Raka Aditya", initials: "RA", pts: 344 },
+  ],
+  events: [
+    {
+      id: "fri-americano",
+      title: "Friday Night Americano",
+      type: "Americano",
+      day: "FRI",
+      date: "13",
+      dateLong: "Jum'at, 13 Juni · 19:00–22:00",
+      venue: "Padel Pro SCBD",
+      courts: 4,
+      fee: 100000,
+      pts: 10,
+      max: 16,
+      joined: 10,
+      today: true,
+      live: false,
+      desc: "Weekly social Americano. All levels welcome — smart pairing keeps every game close.",
+      roster: ["rina", "bayu", "sari", "andre", "dina", "eko", "maya", "dimas", "fitri", "raka"],
+    },
+    {
+      id: "sat-mexicano",
+      title: "Mexicano Social",
+      type: "Mexicano",
+      day: "SAB",
+      date: "14",
+      dateLong: "Sabtu, 14 Juni · 16:00–19:00",
+      venue: "Jakarta Padel Club, Senayan",
+      courts: 3,
+      fee: 85000,
+      pts: 10,
+      max: 12,
+      joined: 8,
+      desc: "Dynamic Mexicano — pairings reshuffle by live standings every round.",
+      roster: ["dina", "raka", "fitri", "eko", "sari", "maya", "bayu", "andre"],
+    },
+    {
+      id: "sun-league",
+      title: "Summer League · Week 7",
+      type: "League",
+      day: "MIN",
+      date: "15",
+      dateLong: "Minggu, 15 Juni · 09:00–13:00",
+      venue: "Padel Arena Kemang",
+      courts: 4,
+      fee: 150000,
+      pts: 25,
+      max: 16,
+      joined: 16,
+      full: true,
+      desc: "Season 3 league round. Tournament weighting — +25 ranking points at stake.",
+      roster: ["rina", "eko", "maya", "dimas", "fitri", "bayu", "sari", "andre"],
+    },
+    {
+      id: "wed-koth",
+      title: "KOTH Night",
+      type: "King of the Hill",
+      day: "RAB",
+      date: "18",
+      dateLong: "Rabu, 18 Juni · 20:00–22:00",
+      venue: "Padel Pro SCBD",
+      courts: 2,
+      fee: 75000,
+      pts: 10,
+      max: 8,
+      joined: 5,
+      desc: "Climb the courts. Win and move up, lose and move down. Court 1 is the throne.",
+      roster: ["bayu", "andre", "raka", "dina", "eko"],
+    },
+  ],
+  feed: [
+    { id: "f1", who: "Dina Maharani", ini: "DM", time: "2h", kind: "result", text: "defeated Raka / Fitri", score: "6–3", sub: "Mexicano Social · +12 pts", likes: 12, comments: 3 },
+    { id: "f2", who: "Bayu Nugroho", ini: "BN", time: "5h", kind: "rank", text: "moved up to Rank #6", score: "↑2", sub: "Season 3 ladder", likes: 18, comments: 5 },
+    { id: "f3", who: "Sari Kusuma", ini: "SK", time: "1d", kind: "badge", text: "earned the Undefeated badge", score: "🏅", sub: "10 wins in a row", likes: 31, comments: 8 },
+    { id: "f4", who: "Eko Prasetyo", ini: "EP", time: "1d", kind: "join", text: "joined Summer League · Week 7", score: "", sub: "Padel Arena Kemang", likes: 6, comments: 1 },
+    { id: "f5", who: "Maya Lestari", ini: "ML", time: "2d", kind: "result", text: "defeated Dimas / Andre", score: "7–5", sub: "KOTH Night · +10 pts", likes: 14, comments: 2 },
+  ],
+  timeline: [
+    { id: "t1", kind: "W", title: "Won 6–2 vs Andre / Sari", sub: "Friday Americano · 6 Jun", pts: "+12" },
+    { id: "t2", kind: "badge", title: "Earned 'Social Butterfly'", sub: "Played with 50 unique players · 4 Jun", pts: "" },
+    { id: "t3", kind: "W", title: "Won 6–4 vs Raka / Dina", sub: "Mexicano Social · 31 Mei", pts: "+10" },
+    { id: "t4", kind: "L", title: "Lost 4–6 vs Bayu / Rina", sub: "KOTH Night · 28 Mei", pts: "+2" },
+    { id: "t5", kind: "rank", title: "Moved up to Rank #8", sub: "Season 3 · 25 Mei", pts: "↑1" },
+    { id: "t6", kind: "W", title: "Won 6–3 vs Eko / Maya", sub: "Friday Americano · 23 Mei", pts: "+12" },
+  ],
+  badges: [
+    { id: "b1", icon: "🎾", name: "First Match", got: true },
+    { id: "b2", icon: "⚔️", name: "Iron Player", sub: "50 matches", got: true },
+    { id: "b3", icon: "🦋", name: "Social Butterfly", sub: "50 partners", got: true },
+    { id: "b4", icon: "🔥", name: "Undefeated", sub: "10 straight", got: false },
+    { id: "b5", icon: "👑", name: "KOTH Winner", got: false },
+    { id: "b6", icon: "🏆", name: "Champion", got: false },
+  ],
+  rankHistory: [19, 17, 16, 14, 15, 12, 11, 11, 10, 9, 8, 8],
+  seasons: [
+    { id: "s3", name: "Season 3", rank: "#8", now: true },
+    { id: "s2", name: "Season 2", rank: "#11" },
+    { id: "s1", name: "Season 1", rank: "#19" },
+  ],
+};
+
+const rupiah = (n) => "Rp " + n.toLocaleString("id-ID");
+
+window.TP_DATA = TP_DATA;
+window.rupiah = rupiah;
+
+</script>
+<script type="text/babel">
+// ===== inlined: prototype/app-core.jsx =====
+// Ternak Padel prototype — theme + shared UI atoms.
+// All components read CSS custom properties set on the phone root by App.
+
+const TP_FONTS = {
+  inter: { label: "Inter (spec)", display: "'Inter', sans-serif", body: "'Inter', sans-serif", dWeight: 800, dSpacing: "-0.02em", dTransform: "none" },
+  barlow: { label: "Barlow Cond. (athletic)", display: "'Barlow Condensed', sans-serif", body: "'Barlow', sans-serif", dWeight: 700, dSpacing: "0.01em", dTransform: "uppercase" },
+  grotesk: { label: "Space Grotesk (technical)", display: "'Space Grotesk', sans-serif", body: "'IBM Plex Sans', sans-serif", dWeight: 700, dSpacing: "-0.01em", dTransform: "none" },
+};
+
+function tpTheme(t) {
+  const dark = t.theme === "dark";
+  const f = TP_FONTS[t.font] || TP_FONTS.inter;
+  const sp = t.density === "compact" ? 0.82 : 1;
+  return {
+    "--accent": t.accent,
+    "--accent-soft": t.accent + (dark ? "2e" : "24"),
+    "--accent-text": dark ? t.accent : t.accent,
+    "--bg": dark ? "#050505" : "#f6f5f3",
+    "--surface": dark ? "#111111" : "#ffffff",
+    "--surface2": dark ? "#1a1a1a" : "#efedea",
+    "--text": dark ? "#ffffff" : "#15130f",
+    "--text2": dark ? "#a3a3a3" : "#6f6a62",
+    "--line": dark ? "#232323" : "#e4e1db",
+    "--success": "#00D26A",
+    "--danger": "#FF4D4D",
+    "--font-display": f.display,
+    "--font-body": f.body,
+    "--dw": f.dWeight,
+    "--dsp": f.dSpacing,
+    "--dtr": f.dTransform,
+    "--sp": sp,
+  };
+}
+
+// ---------- atoms ----------
+
+function Disp({ size = 20, children, style, color }) {
+  return (
+    <div style={{
+      fontFamily: "var(--font-display)", fontWeight: "var(--dw)",
+      letterSpacing: "var(--dsp)", textTransform: "var(--dtr)",
+      fontSize: size, color: color || "var(--text)", lineHeight: 1.1, ...style,
+    }}>{children}</div>
+  );
+}
+
+function Body({ size = 14, dim, bold, children, style, color }) {
+  return (
+    <div style={{
+      fontFamily: "var(--font-body)", fontSize: size,
+      fontWeight: bold ? 600 : 400,
+      color: color || (dim ? "var(--text2)" : "var(--text)"),
+      lineHeight: 1.35, ...style,
+    }}>{children}</div>
+  );
+}
+
+function Num({ size = 22, children, style, color }) {
+  return (
+    <div style={{
+      fontFamily: "var(--font-display)", fontWeight: 700, fontVariantNumeric: "tabular-nums",
+      fontSize: size, color: color || "var(--text)", lineHeight: 1, letterSpacing: "-0.01em", ...style,
+    }}>{children}</div>
+  );
+}
+
+function Card({ children, style, onClick, accent, pad }) {
+  return (
+    <div onClick={onClick} style={{
+      background: accent ? "var(--accent-soft)" : "var(--surface)",
+      border: "1px solid " + (accent ? "transparent" : "var(--line)"),
+      borderRadius: 16, padding: pad != null ? pad : "calc(14px * var(--sp))",
+      cursor: onClick ? "pointer" : "default",
+      transition: "transform .12s ease, background .15s",
+      ...style,
+    }}>{children}</div>
+  );
+}
+
+function Ava({ ini, d = 36, ring }) {
+  return (
+    <div style={{
+      width: d, height: d, flex: "0 0 " + d + "px", borderRadius: "50%",
+      background: "var(--surface2)", color: "var(--text)",
+      border: ring ? "2px solid var(--accent)" : "1px solid var(--line)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontFamily: "var(--font-body)", fontWeight: 700, fontSize: d * 0.34,
+    }}>{ini}</div>
+  );
+}
+
+function Pill({ children, on, onClick, small }) {
+  return (
+    <button onClick={onClick} style={{
+      border: "1px solid " + (on ? "var(--accent)" : "var(--line)"),
+      background: on ? "var(--accent-soft)" : "transparent",
+      color: on ? "var(--text)" : "var(--text2)",
+      borderRadius: 999, padding: small ? "4px 10px" : "6px 13px",
+      fontFamily: "var(--font-body)", fontSize: small ? 11.5 : 13, fontWeight: 600,
+      cursor: onClick ? "pointer" : "default", whiteSpace: "nowrap",
+    }}>{children}</button>
+  );
+}
+
+function Btn({ children, primary, ghost, onClick, full, danger, small, style }) {
+  return (
+    <button onClick={onClick} style={{
+      width: full ? "100%" : undefined,
+      background: primary ? "var(--accent)" : danger ? "var(--danger)" : ghost ? "transparent" : "var(--surface2)",
+      color: primary || danger ? "#0a0a0a" : "var(--text)",
+      border: ghost ? "1px solid var(--line)" : "none",
+      borderRadius: 13, padding: small ? "8px 14px" : "13px 18px",
+      fontFamily: "var(--font-body)", fontWeight: 700, fontSize: small ? 13 : 15,
+      cursor: "pointer", whiteSpace: "nowrap",
+      transition: "filter .12s, transform .08s",
+      ...style,
+    }}
+    onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.97)"; }}
+    onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+    onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+    >{children}</button>
+  );
+}
+
+function Seg({ options, value, onChange }) {
+  return (
+    <div style={{ display: "flex", background: "var(--surface2)", borderRadius: 11, padding: 3, gap: 2 }}>
+      {options.map((o) => (
+        <button key={o} onClick={() => onChange(o)} style={{
+          flex: 1, border: "none", borderRadius: 9, padding: "7px 4px",
+          background: value === o ? "var(--surface)" : "transparent",
+          color: value === o ? "var(--text)" : "var(--text2)",
+          fontFamily: "var(--font-body)", fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+          boxShadow: value === o ? "0 1px 4px rgba(0,0,0,0.25)" : "none",
+        }}>{o}</button>
+      ))}
+    </div>
+  );
+}
+
+function Row({ children, gap = 10, style, onClick }) {
+  return <div onClick={onClick} style={{ display: "flex", alignItems: "center", gap, cursor: onClick ? "pointer" : undefined, ...style }}>{children}</div>;
+}
+
+function Col({ children, gap = 10, style }) {
+  return <div style={{ display: "flex", flexDirection: "column", gap: "calc(" + gap + "px * var(--sp))", ...style }}>{children}</div>;
+}
+
+function SecHead({ children, right, onRight }) {
+  return (
+    <Row style={{ justifyContent: "space-between", marginTop: 4 }}>
+      <Disp size={15}>{children}</Disp>
+      {right && (
+        <Body size={12.5} bold color="var(--accent-text)" onClick={onRight} style={{ cursor: onRight ? "pointer" : "default" }}>
+          <span onClick={onRight} style={{ cursor: onRight ? "pointer" : "default" }}>{right}</span>
+        </Body>
+      )}
+    </Row>
+  );
+}
+
+// Sparkline for rank history (lower = better, so invert)
+function Spark({ vals, w = 120, h = 36, stroke = 2 }) {
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const pts = vals.map((v, i) => {
+    const x = (i / (vals.length - 1)) * (w - 6) + 3;
+    const y = ((v - min) / (max - min || 1)) * (h - 10) + 5;
+    return x + "," + y;
+  });
+  return (
+    <svg width={w} height={h} style={{ display: "block" }}>
+      <polyline points={pts.join(" ")} fill="none" stroke="var(--accent)" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round"></polyline>
+      <circle cx={pts[pts.length - 1].split(",")[0]} cy={pts[pts.length - 1].split(",")[1]} r="3.5" fill="var(--accent)"></circle>
+    </svg>
+  );
+}
+
+function Bars({ vals, h = 44, hi = -1 }) {
+  const max = Math.max(...vals);
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", gap: 5, height: h }}>
+      {vals.map((v, i) => (
+        <div key={i} style={{
+          flex: 1, height: Math.max(8, (v / max) * 100) + "%", borderRadius: 5,
+          background: i === hi ? "var(--accent)" : "var(--surface2)",
+        }}></div>
+      ))}
+    </div>
+  );
+}
+
+// Bottom sheet modal
+function Sheet({ open, onClose, children, title }) {
+  if (!open) return null;
+  return (
+    <div onClick={onClose} style={{
+      position: "absolute", inset: 0, zIndex: 60,
+      background: "rgba(0,0,0,0.55)", backdropFilter: "blur(2px)",
+      display: "flex", flexDirection: "column", justifyContent: "flex-end",
+      animation: "tpFade .18s ease",
+    }}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        background: "var(--bg)", borderRadius: "22px 22px 0 0",
+        padding: "10px 18px 26px", animation: "tpUp .25s cubic-bezier(.2,.9,.3,1)",
+        maxHeight: "85%", overflowY: "auto",
+      }}>
+        <div style={{ width: 38, height: 4.5, borderRadius: 3, background: "var(--line)", margin: "0 auto 12px" }}></div>
+        {title && <Disp size={19} style={{ marginBottom: 12 }}>{title}</Disp>}
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// Toast
+function Toast({ msg }) {
+  if (!msg) return null;
+  return (
+    <div style={{
+      position: "absolute", top: 64, left: "50%", transform: "translateX(-50%)",
+      zIndex: 80, background: "var(--surface)", border: "1px solid var(--line)",
+      color: "var(--text)", borderRadius: 999, padding: "9px 18px",
+      fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600,
+      boxShadow: "0 8px 30px rgba(0,0,0,0.45)", whiteSpace: "nowrap",
+      animation: "tpUp .25s ease",
+    }}>{msg}</div>
+  );
+}
+
+// Bottom navigation + FAB
+function TabBar({ tab, setTab, onFab }) {
+  const items = [
+    ["home", "Home", "M4 11.5 12 4l8 7.5V20a1 1 0 0 1-1 1h-4.5v-5.5h-5V21H5a1 1 0 0 1-1-1v-8.5Z"],
+    ["events", "Events", "M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm0 5h14M9 3v4m6-4v4"],
+    ["matches", "Matches", "M7 4v16M17 4v16M3 9h4m10 0h4M3 15h4m10 0h4"],
+    ["rankings", "Ranks", "M5 20V10m7 10V4m7 16v-7"],
+    ["profile", "Profile", "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0"],
+  ];
+  return (
+    <div style={{
+      position: "relative", borderTop: "1px solid var(--line)", background: "var(--bg)",
+      display: "flex", justifyContent: "space-around", padding: "8px 4px 6px",
+    }}>
+      {items.map(([id, label, d]) => (
+        <button key={id} onClick={() => setTab(id)} style={{
+          background: "none", border: "none", cursor: "pointer", padding: "2px 8px",
+          display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+          color: tab === id ? "var(--accent-text)" : "var(--text2)",
+        }}>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+            <path d={d}></path>
+          </svg>
+          <span style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 600 }}>{label}</span>
+        </button>
+      ))}
+      <button onClick={onFab} title="Create match" style={{
+        position: "absolute", right: 14, top: -26, width: 52, height: 52, borderRadius: "50%",
+        background: "var(--accent)", border: "none", cursor: "pointer",
+        boxShadow: "0 6px 20px rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" strokeWidth="2.6" strokeLinecap="round">
+          <path d="M12 5v14M5 12h14"></path>
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+Object.assign(window, {
+  TP_FONTS, tpTheme, Disp, Body, Num, Card, Ava, Pill, Btn, Seg, Row, Col,
+  SecHead, Spark, Bars, Sheet, Toast, TabBar,
+});
+
+</script>
+<script type="text/babel">
+// ===== inlined: prototype/screens-home-events.jsx =====
+// Home (match-day hero + feed) and Events screens.
+
+function FeedItem({ post, onLike }) {
+  const kindIcon = { result: "🎾", rank: "📈", badge: "🏅", join: "📅" }[post.kind] || "🎾";
+  return (
+    <Card>
+      <Row>
+        <Ava ini={post.ini} d={34}></Ava>
+        <Col gap={2} style={{ flex: 1, minWidth: 0 }}>
+          <Body size={13.5}>
+            <b>{post.who}</b> {post.text} {post.score && <b style={{ color: "var(--accent-text)" }}>{post.score}</b>}
+          </Body>
+          <Body size={11.5} dim>{post.time} · {post.sub}</Body>
+        </Col>
+        <Body size={16}>{kindIcon}</Body>
+      </Row>
+      <Row gap={16} style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line)" }}>
+        <Row gap={5} onClick={() => onLike(post.id)}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill={post.liked ? "var(--accent)" : "none"} stroke={post.liked ? "var(--accent)" : "var(--text2)"} strokeWidth="2">
+            <path d="M12 21s-7.5-4.7-9.7-9A5.6 5.6 0 0 1 12 6.6 5.6 5.6 0 0 1 21.7 12c-2.2 4.3-9.7 9-9.7 9Z"></path>
+          </svg>
+          <Body size={12} bold dim={!post.liked} color={post.liked ? "var(--accent-text)" : undefined}>{post.likes + (post.liked ? 1 : 0)}</Body>
+        </Row>
+        <Row gap={5}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5Z"></path></svg>
+          <Body size={12} dim>{post.comments}</Body>
+        </Row>
+        <Row gap={5} style={{ marginLeft: "auto" }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M12 3v13m0-13L8 7m4-4 4 4"></path></svg>
+        </Row>
+      </Row>
+    </Card>
+  );
+}
+
+function MatchDayHero({ ev, joined, onOpen, onCheckin, checkedIn }) {
+  return (
+    <Card accent onClick={onOpen} style={{ position: "relative", overflow: "hidden" }}>
+      <div style={{ position: "absolute", right: -30, top: -30, width: 130, height: 130, borderRadius: "50%", background: "var(--accent-soft)" }}></div>
+      <Col gap={8} style={{ position: "relative" }}>
+        <Row style={{ justifyContent: "space-between" }}>
+          <Body size={11.5} bold color="var(--accent-text)" style={{ letterSpacing: "0.08em" }}>TODAY · 19:00</Body>
+          <Body size={11.5} dim>{ev.joined + (joined ? 1 : 0)}/{ev.max} players</Body>
+        </Row>
+        <Disp size={22}>{ev.title}</Disp>
+        <Body size={13} dim>{ev.venue} · {ev.courts} courts · +{ev.pts} pts</Body>
+        <Row style={{ justifyContent: "space-between", marginTop: 4 }}>
+          <Row gap={0}>
+            {["RW", "BN", "SK", "AH"].map((i, n) => (
+              <div key={i} style={{ marginLeft: n ? -10 : 0 }}><Ava ini={i} d={28}></Ava></div>
+            ))}
+            <Body size={12} dim style={{ marginLeft: 7 }}>+{ev.joined - 4 + (joined ? 1 : 0)}</Body>
+          </Row>
+          {joined
+            ? <Btn small primary={!checkedIn} ghost={checkedIn} onClick={(e) => { e.stopPropagation(); onCheckin(); }}>{checkedIn ? "✓ Checked in" : "Check in"}</Btn>
+            : <Btn small primary onClick={(e) => { e.stopPropagation(); onOpen(); }}>Join · {rupiah(ev.fee)}</Btn>}
+        </Row>
+      </Col>
+    </Card>
+  );
+}
+
+function HomeScreen({ S, A, layout }) {
+  const ev = S.events[0];
+  const hero = (
+    <MatchDayHero ev={ev} joined={S.joined[ev.id]} checkedIn={S.checkedIn}
+      onOpen={() => A.openEvent(ev.id)} onCheckin={A.checkIn}></MatchDayHero>
+  );
+  const form = (
+    <Row gap={8}>
+      {[
+        ["Streak", S.streak > 0 ? "W" + S.streak + " 🔥" : "—"],
+        ["Win rate", S.winRate + "%"],
+        ["Season", "#" + S.rank],
+      ].map(([l, v]) => (
+        <Card key={l} pad={"calc(11px * var(--sp))"} style={{ flex: 1 }}>
+          <Body size={10.5} dim style={{ letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600 }}>{l}</Body>
+          <Num size={19} style={{ marginTop: 4 }}>{v}</Num>
+        </Card>
+      ))}
+    </Row>
+  );
+  const week = (
+    <Col gap={8}>
+      <SecHead right="All events →" onRight={() => A.setTab("events")}>This week</SecHead>
+      {S.events.slice(1, 3).map((e) => (
+        <Card key={e.id} onClick={() => A.openEvent(e.id)} pad={"calc(11px * var(--sp))"}>
+          <Row style={{ justifyContent: "space-between" }}>
+            <Row gap={10}>
+              <Col gap={0} style={{ width: 34, textAlign: "center" }}>
+                <Body size={10} dim bold>{e.day}</Body>
+                <Num size={17}>{e.date}</Num>
+              </Col>
+              <Col gap={1}>
+                <Body size={13.5} bold>{e.title}</Body>
+                <Body size={11.5} dim>{e.venue.split(",")[0]} · {rupiah(e.fee)}</Body>
+              </Col>
+            </Row>
+            {e.full && !S.joined[e.id] ? <Pill small>Full</Pill> : S.joined[e.id] ? <Pill small on>Joined</Pill> : <Body size={13} bold color="var(--accent-text)">Join →</Body>}
+          </Row>
+        </Card>
+      ))}
+    </Col>
+  );
+  const feed = (
+    <Col gap={8}>
+      <SecHead>Community</SecHead>
+      {S.feed.map((p) => <FeedItem key={p.id} post={p} onLike={A.like}></FeedItem>)}
+    </Col>
+  );
+  return (
+    <Col gap={12} style={{ padding: "calc(14px * var(--sp)) 16px 90px" }}>
+      <Row style={{ justifyContent: "space-between" }}>
+        <Col gap={1}>
+          <Body size={12.5} dim>Selamat malam,</Body>
+          <Disp size={21}>Tomy 👋</Disp>
+        </Col>
+        <Row gap={8}>
+          <div style={{ position: "relative" }}>
+            <Ava ini="TS" d={36} ring></Ava>
+            <div style={{ position: "absolute", top: -2, right: -2, width: 9, height: 9, borderRadius: "50%", background: "var(--accent)" }}></div>
+          </div>
+        </Row>
+      </Row>
+      {layout === "feed" ? (
+        <React.Fragment>{hero}{feed}{form}{week}</React.Fragment>
+      ) : (
+        <React.Fragment>{hero}{form}{week}{feed}</React.Fragment>
+      )}
+    </Col>
+  );
+}
+
+// ---------- Events ----------
+
+function EventsScreen({ S, A }) {
+  const [filter, setFilter] = React.useState("All");
+  const types = ["All", "Americano", "Mexicano", "League", "King of the Hill"];
+  const list = S.events.filter((e) => filter === "All" || e.type === filter);
+  return (
+    <Col gap={12} style={{ padding: "calc(14px * var(--sp)) 16px 90px" }}>
+      <Disp size={24}>Events</Disp>
+      <div style={{ display: "flex", gap: 7, overflowX: "auto", paddingBottom: 2 }}>
+        {types.map((t) => <Pill key={t} small on={filter === t} onClick={() => setFilter(t)}>{t === "King of the Hill" ? "KOTH" : t}</Pill>)}
+      </div>
+      <Col gap={9}>
+        {list.map((e) => (
+          <Card key={e.id} onClick={() => A.openEvent(e.id)} accent={e.today}>
+            <Row gap={12}>
+              <Col gap={0} style={{ width: 44, textAlign: "center", background: "var(--surface2)", borderRadius: 11, padding: "7px 0" }}>
+                <Body size={10} dim bold>{e.day}</Body>
+                <Num size={19}>{e.date}</Num>
+              </Col>
+              <Col gap={2} style={{ flex: 1, minWidth: 0 }}>
+                <Body size={14.5} bold>{e.title}</Body>
+                <Body size={12} dim>{e.venue.split(",")[0]} · {rupiah(e.fee)} · +{e.pts} pts</Body>
+                <Row gap={6} style={{ marginTop: 3 }}>
+                  <div style={{ flex: 1, height: 4, borderRadius: 3, background: "var(--surface2)", overflow: "hidden" }}>
+                    <div style={{ width: Math.round(((e.joined + (S.joined[e.id] ? 1 : 0)) / e.max) * 100) + "%", height: "100%", background: e.full ? "var(--danger)" : "var(--accent)" }}></div>
+                  </div>
+                  <Body size={11} dim>{e.joined + (S.joined[e.id] ? 1 : 0)}/{e.max}</Body>
+                </Row>
+              </Col>
+              {S.joined[e.id] && <Pill small on>✓</Pill>}
+            </Row>
+          </Card>
+        ))}
+      </Col>
+    </Col>
+  );
+}
+
+function EventDetail({ S, A, ev }) {
+  const joined = S.joined[ev.id];
+  const names = { rina: "Rina", eko: "Eko", maya: "Maya", dimas: "Dimas", fitri: "Fitri", bayu: "Bayu", sari: "Sari", andre: "Andre", dina: "Dina", raka: "Raka" };
+  return (
+    <Col gap={12} style={{ padding: "0 0 90px" }}>
+      <div style={{
+        height: 130, background: "linear-gradient(135deg, var(--accent-soft), var(--surface2) 70%)",
+        display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "12px 16px 14px",
+      }}>
+        <button onClick={A.back} style={{ alignSelf: "flex-start", background: "var(--surface)", border: "1px solid var(--line)", color: "var(--text)", borderRadius: 999, padding: "6px 13px", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>← Back</button>
+        <Col gap={3}>
+          <Row gap={6}>
+            <Pill small on>{ev.type}</Pill>
+            <Pill small>+{ev.pts} ranking pts</Pill>
+          </Row>
+          <Disp size={23}>{ev.title}</Disp>
+        </Col>
+      </div>
+      <Col gap={12} style={{ padding: "0 16px" }}>
+        <Row gap={8}>
+          <Card pad={"calc(11px * var(--sp))"} style={{ flex: 1 }}>
+            <Body size={10.5} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.06em" }}>When</Body>
+            <Body size={13} bold style={{ marginTop: 3 }}>{ev.dateLong}</Body>
+          </Card>
+          <Card pad={"calc(11px * var(--sp))"} style={{ flex: 1 }}>
+            <Body size={10.5} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.06em" }}>Where</Body>
+            <Body size={13} bold style={{ marginTop: 3 }}>{ev.venue} · {ev.courts} courts</Body>
+          </Card>
+        </Row>
+        <Body size={13.5} dim>{ev.desc}</Body>
+        <SecHead right={(ev.joined + (joined ? 1 : 0)) + "/" + ev.max}>Players</SecHead>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+          {joined && <Pill small on>TS You</Pill>}
+          {ev.roster.map((r) => <Pill key={r} small>{names[r] || r}</Pill>)}
+        </div>
+        {ev.live && (
+          <Card accent onClick={() => A.setTab("matches")}>
+            <Row style={{ justifyContent: "space-between" }}>
+              <Row gap={8}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--danger)", animation: "tpPulse 1.2s infinite" }}></span>
+                <Body size={13.5} bold>Live now — Round 3 of 7</Body>
+              </Row>
+              <Body size={13} bold color="var(--accent-text)">Watch →</Body>
+            </Row>
+          </Card>
+        )}
+        {!joined && !ev.full && <Btn primary full onClick={() => A.openPay(ev.id)}>Join — {rupiah(ev.fee)}</Btn>}
+        {!joined && ev.full && <Btn full ghost onClick={() => A.toast("Added to waitlist — we'll WhatsApp you")}>Event full — join waitlist</Btn>}
+        {joined && <Btn full ghost onClick={() => A.toast("See you on court! 🎾")}>✓ You're in — view schedule</Btn>}
+      </Col>
+    </Col>
+  );
+}
+
+function PaySheet({ S, A }) {
+  const ev = S.events.find((e) => e.id === S.paying);
+  const [method, setMethod] = React.useState("QRIS");
+  const [state, setState] = React.useState("pick"); // pick → scanning → done
+  React.useEffect(() => { setState("pick"); setMethod("QRIS"); }, [S.paying]);
+  if (!ev) return null;
+  const methods = ["QRIS", "GoPay", "OVO", "Dana", "Transfer"];
+  return (
+    <Sheet open={!!S.paying} onClose={() => A.closePay()} title={state === "done" ? "" : "Payment"}>
+      {state === "pick" && (
+        <Col gap={12}>
+          <Card pad={12}>
+            <Row style={{ justifyContent: "space-between" }}>
+              <Body size={13.5} bold>{ev.title}</Body>
+              <Num size={16}>{rupiah(ev.fee)}</Num>
+            </Row>
+            <Body size={12} dim style={{ marginTop: 2 }}>{ev.dateLong}</Body>
+          </Card>
+          <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+            {methods.map((m) => <Pill key={m} on={method === m} onClick={() => setMethod(m)}>{m}</Pill>)}
+          </div>
+          <Btn primary full onClick={() => { setState("scanning"); setTimeout(() => setState("done"), 1400); }}>
+            Pay {rupiah(ev.fee)} with {method}
+          </Btn>
+        </Col>
+      )}
+      {state === "scanning" && (
+        <Col gap={14} style={{ alignItems: "center", padding: "10px 0 16px" }}>
+          <div style={{
+            width: 150, height: 150, borderRadius: 14, border: "1px solid var(--line)",
+            background: "repeating-conic-gradient(var(--text) 0% 25%, var(--surface) 0% 50%) 0 0 / 16px 16px",
+            opacity: 0.85,
+          }}></div>
+          <Body size={13} dim>Scan with your {method === "QRIS" ? "banking app" : method} · simulating…</Body>
+        </Col>
+      )}
+      {state === "done" && (
+        <Col gap={12} style={{ alignItems: "center", padding: "6px 0 10px", textAlign: "center" }}>
+          <div style={{ width: 58, height: 58, borderRadius: "50%", background: "var(--success)", display: "flex", alignItems: "center", justifyContent: "center", animation: "tpPop .3s cubic-bezier(.2,1.4,.4,1)" }}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" strokeWidth="3" strokeLinecap="round"><path d="M5 13l5 5L20 7"></path></svg>
+          </div>
+          <Disp size={20}>You're in! 🎾</Disp>
+          <Body size={13} dim>{ev.title} · {ev.dateLong}<br></br>Receipt sent to WhatsApp.</Body>
+          <Btn primary full onClick={() => A.confirmJoin(ev.id)}>Done</Btn>
+        </Col>
+      )}
+    </Sheet>
+  );
+}
+
+Object.assign(window, { HomeScreen, EventsScreen, EventDetail, PaySheet, FeedItem });
+
+</script>
+<script type="text/babel">
+// ===== inlined: prototype/screens-live-rank.jsx =====
+// Matches tab: live event (spectator courts + scorer mode + standings).
+
+function MatchesScreen({ S, A }) {
+  const live = S.live;
+  return (
+    <Col gap={12} style={{ padding: "calc(14px * var(--sp)) 16px 90px" }}>
+      <Row style={{ justifyContent: "space-between" }}>
+        <Disp size={24}>Matches</Disp>
+        <Row gap={6}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--danger)", animation: "tpPulse 1.2s infinite" }}></span>
+          <Body size={12.5} bold>LIVE · Round {live.round}/7</Body>
+        </Row>
+      </Row>
+      <Body size={13} dim style={{ marginTop: -8 }}>Friday Night Americano · Padel Pro SCBD</Body>
+
+      {live.courts.map((c, i) => (
+        <Card key={c.id} accent={c.yours} onClick={c.yours ? () => A.setScorer(true) : undefined}>
+          <Row style={{ justifyContent: "space-between", marginBottom: 8 }}>
+            <Body size={11} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.07em" }}>
+              Court {i + 1}{c.yours ? " · your match" : ""}
+            </Body>
+            {c.yours && <Body size={12} bold color="var(--accent-text)">Score it →</Body>}
+          </Row>
+          <Col gap={6}>
+            <Row style={{ justifyContent: "space-between" }}>
+              <Body size={14} bold={c.a >= c.b}>{c.teamA}</Body>
+              <Num size={22} color={c.a >= c.b ? "var(--text)" : "var(--text2)"}>{c.a}</Num>
+            </Row>
+            <Row style={{ justifyContent: "space-between" }}>
+              <Body size={14} bold={c.b > c.a}>{c.teamB}</Body>
+              <Num size={22} color={c.b > c.a ? "var(--text)" : "var(--text2)"}>{c.b}</Num>
+            </Row>
+          </Col>
+        </Card>
+      ))}
+
+      <SecHead right="live ↻">Event standings</SecHead>
+      <Card pad={8}>
+        {S.standings.map((p, i) => (
+          <Row key={p.name} gap={10} style={{
+            padding: "7px 8px", borderRadius: 10,
+            background: p.me ? "var(--accent-soft)" : "transparent",
+          }}>
+            <Num size={14} style={{ width: 18 }} color={i < 3 ? "var(--accent-text)" : "var(--text2)"}>{i + 1}</Num>
+            <Ava ini={p.ini} d={26}></Ava>
+            <Body size={13.5} bold={p.me} style={{ flex: 1 }}>{p.name}{p.me ? " (you)" : ""}</Body>
+            <Num size={14}>{p.pts}</Num>
+          </Row>
+        ))}
+      </Card>
+    </Col>
+  );
+}
+
+function ScorerOverlay({ S, A }) {
+  const c = S.live.courts.find((x) => x.yours);
+  if (!S.scorer || !c) return null;
+  const done = S.matchResult;
+  return (
+    <div style={{ position: "absolute", inset: 0, zIndex: 70, background: "var(--bg)", display: "flex", flexDirection: "column", animation: "tpFade .15s" }}>
+      <Row style={{ justifyContent: "space-between", padding: "14px 16px" }}>
+        <button onClick={() => A.setScorer(false)} style={{ background: "var(--surface)", border: "1px solid var(--line)", color: "var(--text)", borderRadius: 999, padding: "6px 13px", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>↓ Close</button>
+        <Row gap={6}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--danger)", animation: "tpPulse 1.2s infinite" }}></span>
+          <Body size={12.5} bold>Court 2 · Round {S.live.round} · to 21</Body>
+        </Row>
+      </Row>
+
+      {!done ? (
+        <React.Fragment>
+          <Col gap={0} style={{ flex: 1, justifyContent: "center", padding: "0 16px", gap: 12 }}>
+            {[["A", c.teamA, c.a], ["B", c.teamB, c.b]].map(([side, team, score]) => (
+              <Card key={side} accent={side === "A"} pad={18}>
+                <Row style={{ justifyContent: "space-between" }}>
+                  <Col gap={3}>
+                    <Body size={12} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.06em" }}>{side === "A" ? "You & Dina" : "Opponents"}</Body>
+                    <Body size={16} bold>{team}</Body>
+                  </Col>
+                  <Num size={52}>{score}</Num>
+                </Row>
+                <Row gap={8} style={{ marginTop: 12 }}>
+                  <Btn ghost small style={{ flex: 1 }} onClick={() => A.score(side, -1)}>−</Btn>
+                  <Btn primary small style={{ flex: 2 }} onClick={() => A.score(side, 1)}>+1 point</Btn>
+                </Row>
+              </Card>
+            ))}
+          </Col>
+          <div style={{ padding: 16 }}>
+            <Btn full ghost onClick={A.endMatch}>End match</Btn>
+          </div>
+        </React.Fragment>
+      ) : (
+        <Col gap={14} style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24, textAlign: "center" }}>
+          <div style={{ fontSize: 52, animation: "tpPop .4s cubic-bezier(.2,1.4,.4,1)" }}>{done.won ? "🏆" : "🤝"}</div>
+          <Disp size={28}>{done.won ? "Victory!" : "Good fight"}</Disp>
+          <Num size={40} color="var(--accent-text)">{done.a}–{done.b}</Num>
+          <Body size={14} dim>
+            {done.won
+              ? "+12 ranking points · streak W" + S.streak + (S.rank < done.prevRank ? " · Rank #" + done.prevRank + " → #" + S.rank + " 🎉" : "")
+              : "+2 participation points · streak reset"}
+          </Body>
+          <Col gap={8} style={{ width: "100%", marginTop: 8 }}>
+            {done.won && <Btn primary full onClick={() => A.openShare("victory")}>Share victory card</Btn>}
+            <Btn full ghost onClick={A.closeScorer}>Back to courts</Btn>
+          </Col>
+        </Col>
+      )}
+    </div>
+  );
+}
+
+// ---------- Rankings ----------
+
+function RankingsScreen({ S }) {
+  const [period, setPeriod] = React.useState("Season");
+  const [div, setDiv] = React.useState("All");
+  const sorted = S.players.slice().sort((a, b) => b.pts - a.pts);
+  const podium = sorted.slice(0, 3);
+  const rest = sorted.slice(3);
+  const order = [podium[1], podium[0], podium[2]];
+  const hs = [64, 84, 52];
+  return (
+    <Col gap={12} style={{ padding: "calc(14px * var(--sp)) 16px 90px" }}>
+      <Disp size={24}>Leaderboard</Disp>
+      <Seg options={["Weekly", "Monthly", "Season", "All time"]} value={period} onChange={setPeriod}></Seg>
+      <div style={{ display: "flex", gap: 7, overflowX: "auto" }}>
+        {["All", "Men", "Women", "Beginner", "Intermediate", "Advanced"].map((d) => (
+          <Pill key={d} small on={div === d} onClick={() => setDiv(d)}>{d}</Pill>
+        ))}
+      </div>
+      <Row gap={10} style={{ alignItems: "flex-end", justifyContent: "center", padding: "8px 0 2px" }}>
+        {order.map((p, i) => (
+          <Col key={p.id} gap={5} style={{ alignItems: "center", flex: 1 }}>
+            <Ava ini={p.initials} d={i === 1 ? 46 : 38} ring={i === 1}></Ava>
+            <Body size={12} bold style={{ textAlign: "center" }}>{p.name.split(" ")[0]}</Body>
+            <div style={{
+              width: "100%", height: hs[i], borderRadius: "10px 10px 0 0",
+              background: i === 1 ? "var(--accent)" : "var(--surface2)",
+              display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 6,
+            }}>
+              <Num size={17} color={i === 1 ? "#0a0a0a" : "var(--text2)"}>{i === 1 ? 1 : i === 0 ? 2 : 3}</Num>
+            </div>
+          </Col>
+        ))}
+      </Row>
+      <Card pad={8}>
+        {rest.map((p, i) => (
+          <Row key={p.id} gap={10} style={{
+            padding: "8px 8px", borderRadius: 10,
+            background: p.me ? "var(--accent-soft)" : "transparent",
+          }}>
+            <Num size={14} style={{ width: 20 }} color="var(--text2)">{i + 4}</Num>
+            <Ava ini={p.initials} d={28} ring={p.me}></Ava>
+            <Body size={13.5} bold={p.me} style={{ flex: 1 }}>{p.name}{p.me ? " (you)" : ""}</Body>
+            {p.me && S.rankDelta > 0 && <Body size={12} bold color="var(--success)">↑{S.rankDelta}</Body>}
+            <Num size={14}>{p.pts}</Num>
+          </Row>
+        ))}
+      </Card>
+      <Body size={11.5} dim style={{ textAlign: "center" }}>ELO-weighted · {period === "Season" ? "Season 3 · resets 1 Sep" : period}</Body>
+    </Col>
+  );
+}
+
+Object.assign(window, { MatchesScreen, ScorerOverlay, RankingsScreen });
+
+</script>
+<script type="text/babel">
+// ===== inlined: prototype/screens-profile.jsx =====
+// Profile / career screen, share-card overlay, onboarding, create-match sheet.
+
+function ProfileScreen({ S, A }) {
+  const me = TP_DATA.me;
+  return (
+    <Col gap={12} style={{ padding: "calc(14px * var(--sp)) 16px 90px" }}>
+      <Row gap={12}>
+        <Ava ini={me.initials} d={56} ring></Ava>
+        <Col gap={2} style={{ flex: 1 }}>
+          <Disp size={20}>{me.name}</Disp>
+          <Body size={12.5} dim>{me.user} · {me.skill} · {me.side} side · member since {me.memberSince}</Body>
+        </Col>
+        <Btn small ghost onClick={() => A.openShare("rank")}>Share</Btn>
+      </Row>
+
+      <Row gap={8}>
+        {[["Matches", S.matches], ["Wins", S.wins], ["Win rate", S.winRate + "%"], ["Rank", "#" + S.rank]].map(([l, v]) => (
+          <Card key={l} pad={"calc(10px * var(--sp))"} style={{ flex: 1, textAlign: "center" }}>
+            <Num size={18}>{v}</Num>
+            <Body size={10} dim bold style={{ marginTop: 3, textTransform: "uppercase", letterSpacing: "0.05em" }}>{l}</Body>
+          </Card>
+        ))}
+      </Row>
+
+      <Card>
+        <SecHead right="Season 3">Ranking history</SecHead>
+        <div style={{ marginTop: 8 }}>
+          <Spark vals={S.rankHistory.map((v) => -v)} w={330} h={64} stroke={2.5}></Spark>
+        </div>
+        <Row style={{ justifyContent: "space-between", marginTop: 4 }}>
+          <Body size={11} dim>S1 · #19</Body>
+          <Body size={11} dim>S2 · #11</Body>
+          <Body size={11} bold color="var(--accent-text)">now · #{S.rank}</Body>
+        </Row>
+      </Card>
+
+      <SecHead right={S.badgesGot + "/" + TP_DATA.badges.length}>Badges</SecHead>
+      <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
+        {TP_DATA.badges.map((b) => {
+          const got = b.got || (b.id === "b4" && S.streak >= 10);
+          return (
+            <Card key={b.id} pad={10} style={{ minWidth: 86, textAlign: "center", opacity: got ? 1 : 0.45 }} accent={got}>
+              <div style={{ fontSize: 22 }}>{got ? b.icon : "🔒"}</div>
+              <Body size={11} bold style={{ marginTop: 4 }}>{b.name}</Body>
+              {b.sub && <Body size={9.5} dim>{b.sub}</Body>}
+            </Card>
+          );
+        })}
+      </div>
+
+      <SecHead>Career timeline</SecHead>
+      <Col gap={0}>
+        {S.timeline.map((t, i) => (
+          <Row key={t.id} gap={11} style={{ alignItems: "flex-start", position: "relative", paddingBottom: i === S.timeline.length - 1 ? 0 : 14 }}>
+            {i !== S.timeline.length - 1 && <div style={{ position: "absolute", left: 14, top: 30, bottom: 0, width: 2, background: "var(--line)" }}></div>}
+            <div style={{
+              width: 30, height: 30, borderRadius: "50%", flex: "0 0 30px", zIndex: 1,
+              background: t.kind === "W" ? "color-mix(in oklab, var(--success) 22%, var(--surface))" : t.kind === "L" ? "color-mix(in oklab, var(--danger) 18%, var(--surface))" : "var(--accent-soft)",
+              border: "1px solid var(--line)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 800,
+              color: t.kind === "W" ? "var(--success)" : t.kind === "L" ? "var(--danger)" : "var(--accent-text)",
+            }}>{t.kind === "badge" ? "🏅" : t.kind === "rank" ? "↑" : t.kind}</div>
+            <Col gap={1} style={{ flex: 1 }}>
+              <Body size={13.5} bold>{t.title}</Body>
+              <Body size={11.5} dim>{t.sub}</Body>
+            </Col>
+            {t.pts && <Body size={12} bold color="var(--accent-text)">{t.pts}</Body>}
+          </Row>
+        ))}
+      </Col>
+
+      <SecHead>Seasons</SecHead>
+      <Row gap={7}>
+        {TP_DATA.seasons.map((s) => <Pill key={s.id} small on={s.now}>{s.name} · {s.id === "s3" ? "#" + S.rank : s.rank}</Pill>)}
+      </Row>
+      <Body size={11.5} dim style={{ textAlign: "center", marginTop: 4 }}>Nothing is deleted. Everything accumulates.</Body>
+    </Col>
+  );
+}
+
+// ---------- Share card overlay ----------
+
+function ShareOverlay({ S, A }) {
+  if (!S.share) return null;
+  const victory = S.share === "victory";
+  return (
+    <div onClick={A.closeShare} style={{
+      position: "absolute", inset: 0, zIndex: 90, background: "rgba(0,0,0,0.72)",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16,
+      animation: "tpFade .18s", padding: 20,
+    }}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        width: 230, aspectRatio: "9/16", borderRadius: 18, overflow: "hidden",
+        background: "linear-gradient(160deg, #18181b 0%, #09090b 60%)",
+        border: "1px solid #2b2b2b", position: "relative",
+        display: "flex", flexDirection: "column", justifyContent: "space-between",
+        padding: 18, animation: "tpPop .3s cubic-bezier(.2,1.3,.4,1)",
+      }}>
+        <div style={{ position: "absolute", right: -44, top: -44, width: 150, height: 150, borderRadius: "50%", background: "var(--accent)", opacity: 0.22 }}></div>
+        <div style={{ position: "absolute", left: -30, bottom: 60, width: 90, height: 90, borderRadius: "50%", border: "2px solid var(--accent)", opacity: 0.25 }}></div>
+        <Row style={{ justifyContent: "space-between", position: "relative" }}>
+          <Body size={10} bold color="#a3a3a3" style={{ letterSpacing: "0.14em" }}>TERNAK PADEL</Body>
+          <Body size={10} color="#71717a">SEASON 3</Body>
+        </Row>
+        {victory ? (
+          <Col gap={6} style={{ position: "relative" }}>
+            <Body size={11} bold color="var(--accent)" style={{ letterSpacing: "0.12em" }}>VICTORY</Body>
+            <Num size={46} color="#fff">{S.matchResult ? S.matchResult.a + "–" + S.matchResult.b : "6–3"}</Num>
+            <Body size={12} color="#a3a3a3">Tomy / Dina def. Andre / Sari</Body>
+            <Body size={11} color="#71717a">Friday Night Americano · +12 pts</Body>
+          </Col>
+        ) : (
+          <Col gap={6} style={{ position: "relative" }}>
+            <Body size={11} bold color="var(--accent)" style={{ letterSpacing: "0.12em" }}>RANK UP</Body>
+            <Num size={52} color="#fff">#{S.rank}</Num>
+            <Body size={12} color="#a3a3a3">{S.rankDelta > 0 ? "↑" + S.rankDelta + " this week · " : ""}Win rate {S.winRate}% · W{S.streak} streak</Body>
+          </Col>
+        )}
+        <Row style={{ justifyContent: "space-between", position: "relative" }}>
+          <Body size={11} bold color="#fff">@tomy</Body>
+          <Body size={10} color="#71717a">ternakpadel.id</Body>
+        </Row>
+      </div>
+      <Row gap={8}>
+        {["Instagram Story", "WhatsApp Status"].map((m) => (
+          <Btn key={m} small primary={m === "Instagram Story"} ghost={m !== "Instagram Story"}
+            onClick={(e) => { e.stopPropagation(); A.toast("Shared to " + m + " ✓"); A.closeShare(); }}>{m}</Btn>
+        ))}
+      </Row>
+      <Body size={12} color="#a3a3a3">Tap outside to close</Body>
+    </div>
+  );
+}
+
+// ---------- Create match sheet (admin / FAB) ----------
+
+function CreateSheet({ S, A }) {
+  const [name, setName] = React.useState("");
+  const [format, setFormat] = React.useState("Americano");
+  const [courts, setCourts] = React.useState(4);
+  const [max, setMax] = React.useState(16);
+  const formats = ["Americano", "Mexicano", "KOTH", "Knockout", "League", "Mixicano"];
+  return (
+    <Sheet open={S.creating} onClose={() => A.setCreating(false)} title="Create match">
+      <Col gap={12}>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Event name — e.g. Sunday Mexicano"
+          style={{
+            background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12,
+            padding: "12px 14px", color: "var(--text)", fontFamily: "var(--font-body)", fontSize: 14, outline: "none",
+          }}></input>
+        <Body size={12} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: -6 }}>Format</Body>
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+          {formats.map((f) => <Pill key={f} small on={format === f} onClick={() => setFormat(f)}>{f}</Pill>)}
+        </div>
+        <Row gap={8}>
+          {[["Courts", courts, setCourts, 1, 8], ["Max players", max, setMax, 4, 32]].map(([l, v, set, lo, hi]) => (
+            <Card key={l} pad={10} style={{ flex: 1 }}>
+              <Body size={11} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}>{l}</Body>
+              <Row style={{ justifyContent: "space-between", marginTop: 6 }}>
+                <Btn small ghost onClick={() => set(Math.max(lo, v - 1))}>−</Btn>
+                <Num size={18}>{v}</Num>
+                <Btn small ghost onClick={() => set(Math.min(hi, v + 1))}>+</Btn>
+              </Row>
+            </Card>
+          ))}
+        </Row>
+        <Body size={11.5} dim>Smart matchmaking will balance pairings by ranking, partner history and social mixing.</Body>
+        <Btn primary full onClick={() => A.createEvent(name || ("New " + format), format, courts, max)}>Create & open registration</Btn>
+      </Col>
+    </Sheet>
+  );
+}
+
+// ---------- Onboarding ----------
+
+function Onboarding({ A }) {
+  const [step, setStep] = React.useState(0); // 0 register, 1 otp, 2-5 questions, 6 done
+  const [otp, setOtp] = React.useState("");
+  const [answers, setAnswers] = React.useState({});
+  React.useEffect(() => {
+    if (step === 1 && otp.length < 4) {
+      const id = setTimeout(() => setOtp(otp + "4719"[otp.length]), 420);
+      return () => clearTimeout(id);
+    }
+    if (step === 1 && otp.length === 4) {
+      const id = setTimeout(() => setStep(2), 500);
+      return () => clearTimeout(id);
+    }
+  }, [step, otp]);
+  const qs = [
+    ["Your skill level?", ["Beginner", "Intermediate", "Advanced", "Competitive"], "skill"],
+    ["Preferred side?", ["Left", "Right", "Both"], "side"],
+    ["How often do you play?", ["Weekly", "Monthly", "Competitive"], "freq"],
+    ["What are you here for?", ["Social", "Improve skills", "Competitive", "Networking"], "goal"],
+  ];
+  const field = (ph, val) => (
+    <div style={{
+      background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12,
+      padding: "13px 14px", fontFamily: "var(--font-body)", fontSize: 14,
+      color: val ? "var(--text)" : "var(--text2)",
+    }}>{val || ph}</div>
+  );
+  return (
+    <div style={{ position: "absolute", inset: 0, zIndex: 100, background: "var(--bg)", display: "flex", flexDirection: "column", padding: "18px 20px 24px" }}>
+      {step === 0 && (
+        <Col gap={12} style={{ flex: 1, justifyContent: "center" }}>
+          <div style={{ width: 46, height: 46, borderRadius: 13, background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🎾</div>
+          <Disp size={28}>Ternak Padel</Disp>
+          <Body size={14} dim style={{ marginTop: -6 }}>Your padel career starts here. No passwords — ever.</Body>
+          {field("Full name", "Tomy Santoso")}
+          {field("WhatsApp number", "+62 812 9000 4123")}
+          {field("Email", "tomy@tomspadel.com")}
+          <Btn primary full onClick={() => setStep(1)}>Continue with WhatsApp</Btn>
+          <Body size={12} dim style={{ textAlign: "center" }}>We'll send a one-time code to your WhatsApp</Body>
+        </Col>
+      )}
+      {step === 1 && (
+        <Col gap={14} style={{ flex: 1, justifyContent: "center", alignItems: "center", textAlign: "center" }}>
+          <div style={{ width: 52, height: 52, borderRadius: "50%", background: "color-mix(in oklab, var(--success) 20%, var(--surface))", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>💬</div>
+          <Disp size={21}>Check WhatsApp</Disp>
+          <Body size={13} dim style={{ marginTop: -6 }}>Code sent to +62 812 •••• 4123 — auto-filling for the demo</Body>
+          <Row gap={9}>
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} style={{
+                width: 46, height: 54, borderRadius: 12,
+                border: "1.5px solid " + (otp.length > i ? "var(--accent)" : "var(--line)"),
+                background: "var(--surface)", display: "flex", alignItems: "center", justifyContent: "center",
+                fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700, color: "var(--text)",
+              }}>{otp[i] || ""}</div>
+            ))}
+          </Row>
+          <Body size={12} dim>Didn't get it? Resend in 0:24</Body>
+        </Col>
+      )}
+      {step >= 2 && step <= 5 && (() => {
+        const [q, opts, key] = qs[step - 2];
+        return (
+          <Col gap={12} style={{ flex: 1, paddingTop: 16 }}>
+            <Row gap={5}>
+              {qs.map((_, i) => (
+                <div key={i} style={{ flex: 1, height: 4, borderRadius: 3, background: i <= step - 2 ? "var(--accent)" : "var(--line)" }}></div>
+              ))}
+            </Row>
+            <Disp size={23} style={{ marginTop: 10 }}>{q}</Disp>
+            <Col gap={9} style={{ marginTop: 6 }}>
+              {opts.map((o) => (
+                <Card key={o} accent={answers[key] === o} onClick={() => {
+                  setAnswers({ ...answers, [key]: o });
+                  setTimeout(() => setStep(step + 1), 240);
+                }}>
+                  <Body size={15} bold>{o}</Body>
+                </Card>
+              ))}
+            </Col>
+            <button onClick={() => setStep(step + 1)} style={{ marginTop: "auto", background: "none", border: "none", color: "var(--text2)", fontFamily: "var(--font-body)", fontSize: 13, cursor: "pointer" }}>Skip</button>
+          </Col>
+        );
+      })()}
+      {step === 6 && (
+        <Col gap={13} style={{ flex: 1, justifyContent: "center", alignItems: "center", textAlign: "center" }}>
+          <Ava ini="TS" d={68} ring></Ava>
+          <Disp size={24}>@tomy</Disp>
+          <Row gap={6}>
+            <Pill small on>{answers.skill || "Intermediate"}</Pill>
+            <Pill small on>{answers.side || "Left"} side</Pill>
+          </Row>
+          <Card accent style={{ width: "100%" }}>
+            <Row gap={10}>
+              <div style={{ fontSize: 26 }}>🏅</div>
+              <Col gap={1} style={{ textAlign: "left" }}>
+                <Body size={14} bold>First badge: Rookie</Body>
+                <Body size={12} dim>Your padel career starts now. Nothing is deleted — everything accumulates.</Body>
+              </Col>
+            </Row>
+          </Card>
+          <Btn primary full onClick={A.finishOnboarding}>Find your first match</Btn>
+        </Col>
+      )}
+      {step < 6 && (
+        <button onClick={A.finishOnboarding} style={{ position: "absolute", top: 16, right: 18, background: "none", border: "none", color: "var(--text2)", fontFamily: "var(--font-body)", fontSize: 13, cursor: "pointer" }}>Skip demo →</button>
+      )}
+    </div>
+  );
+}
+
+Object.assign(window, { ProfileScreen, ShareOverlay, CreateSheet, Onboarding });
+
+</script>
+<script type="text/babel">
+// ===== inlined: prototype/screens-host.jsx =====
+// iPad host console — landscape tablet view for community hosts leading matches.
+// Shares live/standings state with the phone app.
+
+function IPadFrame({ children, dark, width = 1194, height = 834 }) {
+  return (
+    <div style={{
+      width, height, borderRadius: 38, overflow: "hidden", position: "relative",
+      background: dark ? "#000" : "#F2F2F7",
+      boxShadow: "0 40px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.12), 0 0 0 14px #1c1c1e, 0 0 0 15.5px #3a3a3c",
+      boxSizing: "border-box",
+    }}>
+      {/* status bar */}
+      <div style={{
+        position: "absolute", top: 0, left: 0, right: 0, height: 24, zIndex: 50,
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        padding: "10px 24px 0", pointerEvents: "none",
+        fontFamily: "-apple-system, system-ui", fontSize: 12.5, fontWeight: 600,
+        color: dark ? "#fff" : "#000",
+      }}>
+        <span>21:14 Jum 13 Jun</span>
+        <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span>📶</span><span>100%</span>
+          <span style={{ display: "inline-block", width: 22, height: 11, border: "1px solid currentColor", borderRadius: 3, position: "relative" }}>
+            <span style={{ position: "absolute", inset: 1.5, background: "currentColor", borderRadius: 1 }}></span>
+          </span>
+        </span>
+      </div>
+      <div style={{ height: "100%" }}>{children}</div>
+      {/* home indicator */}
+      <div style={{ position: "absolute", bottom: 7, left: "50%", transform: "translateX(-50%)", width: 220, height: 5, borderRadius: 100, background: dark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.25)", zIndex: 60 }}></div>
+    </div>
+  );
+}
+
+function HostCourtCard({ court, idx, A, target }) {
+  const leadA = court.a >= court.b;
+  const done = court.a >= target || court.b >= target;
+  return (
+    <Card style={{ display: "flex", flexDirection: "column", gap: 12, borderColor: done ? "var(--accent)" : "var(--line)" }} pad={18}>
+      <Row style={{ justifyContent: "space-between" }}>
+        <Body size={12} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.08em" }}>Court {idx + 1}</Body>
+        {done
+          ? <Pill small on>Game point reached</Pill>
+          : <Body size={12} dim>to {target}</Body>}
+      </Row>
+      {[["A", court.teamA, court.a, leadA], ["B", court.teamB, court.b, !leadA]].map(([side, team, score, leading]) => (
+        <Row key={side} gap={12} style={{
+          background: "var(--surface2)", borderRadius: 14, padding: "12px 14px",
+          outline: leading && (court.a !== court.b) ? "1.5px solid var(--accent)" : "1.5px solid transparent",
+        }}>
+          <Body size={16} bold style={{ flex: 1 }}>{team}</Body>
+          <Num size={38}>{score}</Num>
+          <Col gap={6}>
+            <Btn small primary onClick={() => A.scoreCourt(court.id, side, 1)} style={{ minWidth: 64 }}>+1</Btn>
+            <Btn small ghost onClick={() => A.scoreCourt(court.id, side, -1)} style={{ minWidth: 64 }}>−</Btn>
+          </Col>
+        </Row>
+      ))}
+    </Card>
+  );
+}
+
+function HostConsole({ S, A, t }) {
+  const target = 21;
+  const allDone = S.live.courts.every((c) => c.a >= target || c.b >= target);
+  const nextPairs = [
+    ["Rina / Andre", "Tomy / Eko"],
+    ["Dina / Bayu", "Maya / Dimas"],
+    ["Sari / Raka", "Fitri + walk-in"],
+  ];
+  return (
+    <div style={{ ...tpTheme(t), background: "var(--bg)", height: "100%", display: "flex", boxSizing: "border-box", paddingTop: 24 }}>
+      {/* left rail — event context */}
+      <div style={{ width: 252, flex: "0 0 252px", borderRight: "1px solid var(--line)", display: "flex", flexDirection: "column", gap: 14, padding: "18px 16px 44px", boxSizing: "border-box" }}>
+        <Row gap={10}>
+          <div style={{ width: 38, height: 38, borderRadius: 11, background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19 }}>🎾</div>
+          <Col gap={1}>
+            <Body size={11} dim bold style={{ letterSpacing: "0.08em" }}>HOST CONSOLE</Body>
+            <Disp size={15}>Ternak Padel</Disp>
+          </Col>
+        </Row>
+        <Card accent pad={14}>
+          <Row gap={7} style={{ marginBottom: 5 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--danger)", animation: "tpPulse 1.2s infinite" }}></span>
+            <Body size={11.5} bold color="var(--accent-text)">LIVE</Body>
+          </Row>
+          <Disp size={17}>Friday Night Americano</Disp>
+          <Body size={12} dim style={{ marginTop: 3 }}>Padel Pro SCBD · 3 courts aktif</Body>
+        </Card>
+        <Row gap={8}>
+          <Card pad={11} style={{ flex: 1, textAlign: "center" }}>
+            <Num size={20}>{S.live.round}<span style={{ fontSize: 13, color: "var(--text2)" }}>/7</span></Num>
+            <Body size={10} dim bold style={{ marginTop: 3, textTransform: "uppercase" }}>Round</Body>
+          </Card>
+          <Card pad={11} style={{ flex: 1, textAlign: "center" }}>
+            <Num size={20}>12<span style={{ fontSize: 13, color: "var(--text2)" }}>/12</span></Num>
+            <Body size={10} dim bold style={{ marginTop: 3, textTransform: "uppercase" }}>Checked in</Body>
+          </Card>
+        </Row>
+        <Card pad={12}>
+          <Body size={11} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Round timer</Body>
+          <Row style={{ justifyContent: "space-between" }}>
+            <Num size={26}>12:42</Num>
+            <Btn small ghost onClick={() => A.toast("Timer paused")}>⏸</Btn>
+          </Row>
+          <div style={{ height: 5, borderRadius: 3, background: "var(--surface2)", marginTop: 9, overflow: "hidden" }}>
+            <div style={{ width: "64%", height: "100%", background: "var(--accent)" }}></div>
+          </div>
+        </Card>
+        <Col gap={8} style={{ marginTop: "auto" }}>
+          <Btn full ghost onClick={() => A.toast("Walk-in added — pairings rebalanced")}>+ Add walk-in player</Btn>
+          <Btn full ghost onClick={() => A.toast("Announcement sent to all phones 📣")}>📣 Announce to players</Btn>
+        </Col>
+      </div>
+
+      {/* center — courts */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12, padding: "18px 18px 44px", boxSizing: "border-box", overflowY: "auto" }}>
+        <Row style={{ justifyContent: "space-between" }}>
+          <Disp size={21}>Courts — Round {S.live.round}</Disp>
+          <Body size={12.5} dim>Tap +1 to score · syncs to every phone instantly</Body>
+        </Row>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          {S.live.courts.map((c, i) => (
+            <HostCourtCard key={c.id} court={c} idx={i} A={A} target={target}></HostCourtCard>
+          ))}
+          <Card pad={18} style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 8, borderStyle: "dashed", minHeight: 180 }}>
+            <Body size={13} dim>Court 4 — resting</Body>
+            <Body size={12.5} dim style={{ textAlign: "center" }}>Sari, Raka, Fitri, Eko<br></br>back in next round</Body>
+          </Card>
+        </div>
+        <Btn primary full onClick={A.endRound} style={{ padding: "16px 18px", fontSize: 16, opacity: allDone ? 1 : 0.9 }}>
+          {allDone ? "End round " + S.live.round + " → generate Round " + (S.live.round + 1) + " pairings" : "End round early → next pairings"}
+        </Btn>
+      </div>
+
+      {/* right rail — standings + next */}
+      <div style={{ width: 264, flex: "0 0 264px", borderLeft: "1px solid var(--line)", display: "flex", flexDirection: "column", gap: 12, padding: "18px 16px 44px", boxSizing: "border-box", overflowY: "auto" }}>
+        <SecHead right="live ↻">Standings</SecHead>
+        <Card pad={6}>
+          {S.standings.map((p, i) => (
+            <Row key={p.name} gap={9} style={{ padding: "7px 8px", borderRadius: 10, background: p.me ? "var(--accent-soft)" : "transparent" }}>
+              <Num size={13} style={{ width: 16 }} color={i < 3 ? "var(--accent-text)" : "var(--text2)"}>{i + 1}</Num>
+              <Ava ini={p.ini} d={24}></Ava>
+              <Body size={12.5} bold={p.me} style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name.split(" ")[0]} {p.name.split(" ")[1] ? p.name.split(" ")[1][0] + "." : ""}</Body>
+              <Num size={13}>{p.pts}</Num>
+            </Row>
+          ))}
+        </Card>
+        <SecHead>Next round preview</SecHead>
+        <Col gap={7}>
+          {nextPairs.map(([a, b], i) => (
+            <Card key={i} pad={11}>
+              <Body size={10.5} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Court {i + 1}</Body>
+              <Body size={12.5} bold>{a}</Body>
+              <Body size={11.5} dim style={{ margin: "1px 0" }}>vs</Body>
+              <Body size={12.5} bold>{b}</Body>
+            </Card>
+          ))}
+        </Col>
+        <Body size={11} dim style={{ textAlign: "center" }}>Smart matchmaking: balanced by live standings & partner history</Body>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { IPadFrame, HostConsole });
+
+</script>
+<script type="text/babel">
+// ===== inlined: prototype/app.jsx =====
+// Root app: state, actions, router, live simulation, tweaks, device shell.
+
+const TP_TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "dark",
+  "device": "phone",
+  "accent": "#FF6B00",
+  "font": "inter",
+  "density": "comfy",
+  "homeLayout": "matchday"
+}/*EDITMODE-END*/;
+
+const TP_LS_KEY = "tp_proto_v1";
+
+function tpLoad() {
+  try { return JSON.parse(localStorage.getItem(TP_LS_KEY)) || {}; } catch (e) { return {}; }
+}
+function tpSave(patch) {
+  try { localStorage.setItem(TP_LS_KEY, JSON.stringify({ ...tpLoad(), ...patch })); } catch (e) {}
+}
+
+function TernakApp() {
+  const [t, setTweak] = useTweaks(TP_TWEAK_DEFAULTS);
+  const saved = React.useMemo(tpLoad, []);
+
+  const [tab, setTab] = React.useState("home");
+  const [eventOpen, setEventOpen] = React.useState(null);
+  const [paying, setPaying] = React.useState(null);
+  const [creating, setCreating] = React.useState(false);
+  const [scorer, setScorer] = React.useState(false);
+  const [share, setShare] = React.useState(null);
+  const [toastMsg, setToastMsg] = React.useState(null);
+  const [onboarded, setOnboarded] = React.useState(!!saved.onboarded);
+
+  const [joined, setJoined] = React.useState(saved.joined || {});
+  const [checkedIn, setCheckedIn] = React.useState(false);
+  const [feed, setFeed] = React.useState(() => TP_DATA.feed.map((p) => ({ ...p, liked: (saved.liked || []).includes(p.id) })));
+  const [events, setEvents] = React.useState(TP_DATA.events.map((e) => ({ ...e, live: e.id === "fri-americano" })));
+  const [timeline, setTimeline] = React.useState(TP_DATA.timeline);
+  const [stats, setStats] = React.useState({ matches: 47, wins: 30, streak: 3, rank: 8, rankDelta: 0, myPts: 380 });
+  const [live, setLive] = React.useState({
+    round: 3,
+    courts: [
+      { id: "c1", teamA: "Bayu / Rina", teamB: "Eko / Maya", a: 16, b: 12 },
+      { id: "c2", teamA: "Tomy / Dina", teamB: "Andre / Sari", a: 14, b: 10, yours: true },
+      { id: "c3", teamA: "Dimas / Fitri", teamB: "Raka / Sari", a: 9, b: 11 },
+    ],
+  });
+  const [standings, setStandings] = React.useState([
+    { name: "Rina Wijaya", ini: "RW", pts: 86 },
+    { name: "Tomy Santoso", ini: "TS", pts: 81, me: true },
+    { name: "Bayu Nugroho", ini: "BN", pts: 77 },
+    { name: "Dina Maharani", ini: "DM", pts: 74 },
+    { name: "Andre Halim", ini: "AH", pts: 69 },
+  ]);
+  const [matchResult, setMatchResult] = React.useState(null);
+
+  // live simulation tick (other courts creep up while watching)
+  React.useEffect(() => {
+    if ((tab !== "matches" && t.device !== "ipad") || scorer) return;
+    const id = setInterval(() => {
+      setLive((l) => ({
+        ...l,
+        courts: l.courts.map((c) => {
+          if (c.yours || Math.random() < 0.5) return c;
+          const key = Math.random() < 0.5 ? "a" : "b";
+          return { ...c, [key]: c[key] + 1 };
+        }),
+      }));
+    }, 2600);
+    return () => clearInterval(id);
+  }, [tab, scorer, t.device]);
+
+  const winRate = Math.round((stats.wins / stats.matches) * 100);
+  const players = React.useMemo(() => TP_DATA.players.map((p) => (p.me ? { ...p, pts: stats.myPts } : p)), [stats.myPts]);
+
+  const toast = (msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(null), 2200); };
+
+  const A = {
+    setTab: (x) => { setTab(x); setEventOpen(null); },
+    openEvent: (id) => { setTab("events"); setEventOpen(id); },
+    back: () => setEventOpen(null),
+    openPay: (id) => setPaying(id),
+    closePay: () => setPaying(null),
+    confirmJoin: (id) => {
+      const j = { ...joined, [id]: true };
+      setJoined(j); setPaying(null); tpSave({ joined: j });
+      toast("Joined ✓ — pairings drop 1h before start");
+    },
+    checkIn: () => { setCheckedIn(true); toast("Checked in — Court 2, Round 3 🎾"); },
+    like: (id) => {
+      setFeed((f) => {
+        const nf = f.map((p) => (p.id === id ? { ...p, liked: !p.liked } : p));
+        tpSave({ liked: nf.filter((p) => p.liked).map((p) => p.id) });
+        return nf;
+      });
+    },
+    setScorer,
+    scoreCourt: (courtId, side, d) => {
+      setLive((l) => ({
+        ...l,
+        courts: l.courts.map((c) => {
+          if (c.id !== courtId) return c;
+          const key = side === "A" ? "a" : "b";
+          return { ...c, [key]: Math.max(0, c[key] + d) };
+        }),
+      }));
+    },
+    endRound: () => {
+      setLive((l) => ({
+        round: l.round + 1,
+        courts: [
+          { id: "c1", teamA: "Rina / Andre", teamB: "Tomy / Eko", a: 0, b: 0, yours: true },
+          { id: "c2", teamA: "Dina / Bayu", teamB: "Maya / Dimas", a: 0, b: 0 },
+          { id: "c3", teamA: "Sari / Raka", teamB: "Fitri / Walk-in", a: 0, b: 0 },
+        ],
+      }));
+      setStandings((s) => s.map((p) => ({ ...p, pts: p.pts + Math.floor(Math.random() * 8) + (p.me ? 6 : 0) })).sort((a, b) => b.pts - a.pts));
+      toast("Round complete — new pairings sent to every phone \ud83d\udce3");
+    },
+    score: (side, d) => {
+      setLive((l) => ({
+        ...l,
+        courts: l.courts.map((c) => {
+          if (!c.yours) return c;
+          const key = side === "A" ? "a" : "b";
+          return { ...c, [key]: Math.max(0, c[key] + d) };
+        }),
+      }));
+    },
+    endMatch: () => {
+      const c = live.courts.find((x) => x.yours);
+      const won = c.a > c.b;
+      const prevRank = stats.rank;
+      const next = {
+        matches: stats.matches + 1,
+        wins: stats.wins + (won ? 1 : 0),
+        streak: won ? stats.streak + 1 : 0,
+        rank: won && stats.rank === 8 ? 7 : stats.rank,
+        rankDelta: won && stats.rank === 8 ? 1 : stats.rankDelta,
+        myPts: stats.myPts + (won ? 19 : 2),
+      };
+      setStats(next);
+      setMatchResult({ won, a: c.a, b: c.b, prevRank });
+      const score = c.a + "–" + c.b;
+      setTimeline((tl) => [
+        ...(won && next.rank < prevRank ? [{ id: "tl-rank-" + Date.now(), kind: "rank", title: "Moved up to Rank #" + next.rank, sub: "Season 3 · just now", pts: "↑1" }] : []),
+        { id: "tl-" + Date.now(), kind: won ? "W" : "L", title: (won ? "Won " : "Lost ") + score + " vs Andre / Sari", sub: "Friday Night Americano · just now", pts: won ? "+12" : "+2" },
+        ...tl,
+      ]);
+      setFeed((f) => [
+        { id: "f-" + Date.now(), who: "Tomy Santoso", ini: "TS", time: "now", kind: "result", text: won ? "defeated Andre / Sari" : "fell to Andre / Sari", score, sub: "Friday Night Americano · " + (won ? "+12" : "+2") + " pts", likes: 0, comments: 0 },
+        ...f,
+      ]);
+      setStandings((s) => s.map((p) => (p.me ? { ...p, pts: p.pts + (won ? 12 : 2) } : p)).sort((a, b) => b.pts - a.pts));
+    },
+    closeScorer: () => {
+      setScorer(false); setMatchResult(null);
+      setLive((l) => ({ ...l, round: l.round + 1, courts: l.courts.map((c) => (c.yours ? { ...c, a: 0, b: 0, teamA: "Tomy / Rina", teamB: "Bayu / Maya" } : c)) }));
+    },
+    openShare: (kind) => setShare(kind),
+    closeShare: () => setShare(null),
+    setCreating,
+    createEvent: (name, format, courts, max) => {
+      setEvents((evs) => [...evs, {
+        id: "ev-" + Date.now(), title: name, type: format, day: "SEN", date: "16",
+        dateLong: "Senin, 16 Juni · 19:00", venue: "Padel Pro SCBD", courts, fee: 100000,
+        pts: 10, max, joined: 1, desc: "Created by you. Smart matchmaking will balance pairings as players register.",
+        roster: [],
+      }]);
+      setCreating(false); setTab("events");
+      toast("Event created — registration open 📣");
+    },
+    finishOnboarding: () => { setOnboarded(true); tpSave({ onboarded: true }); },
+    toast,
+  };
+
+  const S = { ...stats, winRate, joined, checkedIn, feed, events, timeline, live, standings, scorer, share, paying, creating, matchResult, players, rankHistory: TP_DATA.rankHistory.slice(0, 11).concat([stats.rank]), badgesGot: 3 + (stats.streak >= 10 ? 1 : 0) };
+
+  const ev = events.find((e) => e.id === eventOpen);
+  const dark = t.theme === "dark";
+  const isPad = t.device === "ipad";
+
+  // scale device to viewport
+  const [scale, setScale] = React.useState(1);
+  React.useEffect(() => {
+    const dw = isPad ? 1194 + 32 : 402, dh = isPad ? 834 + 32 : 874;
+    const fit = () => setScale(Math.min(1, (window.innerHeight - 56) / dh, (window.innerWidth - 48) / dw));
+    fit(); window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, [isPad]);
+
+  return (
+    <div style={{
+      minHeight: "100vh", display: "flex", flexDirection: "column", gap: 14, alignItems: "center", justifyContent: "center",
+      background: dark ? "#0c0c0d" : "#e8e6e1", transition: "background .3s",
+    }}>
+      <div style={{ display: "flex", background: dark ? "#1c1c1e" : "#fff", borderRadius: 999, padding: 4, gap: 3, boxShadow: "0 2px 12px rgba(0,0,0,0.18)" }}>
+        {[["phone", "\ud83d\udcf1 Player app"], ["ipad", "\u25ad iPad host console"]].map(([id, label]) => (
+          <button key={id} onClick={() => setTweak("device", id)} style={{
+            border: "none", borderRadius: 999, padding: "7px 16px", cursor: "pointer",
+            fontFamily: "'Inter', sans-serif", fontSize: 12.5, fontWeight: 600,
+            background: t.device === id ? t.accent : "transparent",
+            color: t.device === id ? "#0a0a0a" : dark ? "#a3a3a3" : "#6f6a62",
+          }}>{label}</button>
+        ))}
+      </div>
+      <div style={{ transform: "scale(" + scale + ")", transformOrigin: "center top" }}>
+        {isPad ? (
+          <IPadFrame dark={dark}>
+            <HostConsole S={S} A={A} t={t}></HostConsole>
+          </IPadFrame>
+        ) : (
+        <IOSDevice dark={dark}>
+          <div style={{ ...tpTheme(t), background: "var(--bg)", height: "100%", display: "flex", flexDirection: "column", position: "relative" }}>
+            <div style={{ height: 54, flex: "0 0 54px" }}></div>
+            <div style={{ flex: 1, overflowY: "auto", position: "relative" }}>
+              {tab === "home" && <HomeScreen S={S} A={A} layout={t.homeLayout}></HomeScreen>}
+              {tab === "events" && !ev && <EventsScreen S={S} A={A}></EventsScreen>}
+              {tab === "events" && ev && <EventDetail S={S} A={A} ev={ev}></EventDetail>}
+              {tab === "matches" && <MatchesScreen S={S} A={A}></MatchesScreen>}
+              {tab === "rankings" && <RankingsScreen S={S}></RankingsScreen>}
+              {tab === "profile" && <ProfileScreen S={S} A={A}></ProfileScreen>}
+            </div>
+            <TabBar tab={tab} setTab={A.setTab} onFab={() => setCreating(true)}></TabBar>
+            <div style={{ height: 22, flex: "0 0 22px", background: "var(--bg)" }}></div>
+            <PaySheet S={S} A={A}></PaySheet>
+            <CreateSheet S={S} A={A}></CreateSheet>
+            <ScorerOverlay S={S} A={A}></ScorerOverlay>
+            <ShareOverlay S={S} A={A}></ShareOverlay>
+            {!onboarded && <Onboarding A={A}></Onboarding>}
+            <Toast msg={toastMsg}></Toast>
+          </div>
+        </IOSDevice>
+        )}
+      </div>
+
+      <TweaksPanel>
+        <TweakSection label="Theme"></TweakSection>
+        <TweakRadio label="Mode" value={t.theme} options={["dark", "light"]} onChange={(v) => setTweak("theme", v)}></TweakRadio>
+        <TweakColor label="Accent" value={t.accent} options={["#FF6B00", "#C4F22E", "#2EAEFF", "#FF3D71"]} onChange={(v) => setTweak("accent", v)}></TweakColor>
+        <TweakSection label="Typography"></TweakSection>
+        <TweakSelect label="Type pairing" value={t.font} options={Object.keys(TP_FONTS).map((k) => ({ value: k, label: TP_FONTS[k].label }))} onChange={(v) => setTweak("font", v)}></TweakSelect>
+        <TweakSection label="Layout"></TweakSection>
+        <TweakRadio label="Device" value={t.device} options={[{ value: "phone", label: "Phone" }, { value: "ipad", label: "iPad host" }]} onChange={(v) => setTweak("device", v)}></TweakRadio>
+        <TweakRadio label="Home order" value={t.homeLayout} options={["matchday", "feed"]} onChange={(v) => setTweak("homeLayout", v)}></TweakRadio>
+        <TweakRadio label="Density" value={t.density} options={["comfy", "compact"]} onChange={(v) => setTweak("density", v)}></TweakRadio>
+        <TweakSection label="Demo"></TweakSection>
+        <TweakButton label="Replay onboarding" onClick={() => { setOnboarded(false); }}></TweakButton>
+      </TweaksPanel>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<TernakApp></TernakApp>);
+
+</script>
+</body>
+</html>
