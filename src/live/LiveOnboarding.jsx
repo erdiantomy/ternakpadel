@@ -6,11 +6,10 @@ import { Disp, Body, Card, Ava, Pill, Btn, Row, Col } from "../components/atoms.
 // send-otp-whatsapp edge function → Fonnte), then profile setup questions.
 
 const normalizePhone = (raw) => {
-  let p = raw.replace(/[\s\-().]/g, "");
-  if (p.startsWith("08")) p = "+62" + p.slice(1);
-  else if (p.startsWith("62")) p = "+" + p;
-  else if (!p.startsWith("+")) p = "+62" + p;
-  return p;
+  let p = raw.replace(/\D/g, "");
+  if (p.startsWith("0")) p = p.slice(1);
+  if (p.startsWith("62")) p = p.slice(2);
+  return "+62" + p;
 };
 
 const initialsOf = (name) =>
@@ -45,7 +44,7 @@ export function LiveOnboarding({ session, profile, onDone, toast }) {
   const sendOtp = async () => {
     if (!name.trim()) return toast("Enter your name first");
     const p = normalizePhone(phone);
-    if (!/^\+\d{9,15}$/.test(p)) return toast("Enter a valid WhatsApp number");
+    if (!/^\+62\d{8,13}$/.test(p)) return toast("Masukkan nomor WhatsApp yang valid");
     setBusy(true);
     try {
       const { error } = await withTimeout(supabase.auth.signInWithOtp({ phone: p }));
@@ -107,7 +106,10 @@ export function LiveOnboarding({ session, profile, onDone, toast }) {
           <Disp size={28}>Ternak Padel</Disp>
           <Body size={14} dim style={{ marginTop: -6 }}>Your padel career starts here. No passwords — ever.</Body>
           <input style={inputStyle} placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
-          <input style={inputStyle} placeholder="WhatsApp number — 08xx or +62" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <div style={{ display: "flex", gap: 8, width: "100%" }}>
+            <div style={{ ...inputStyle, width: 64, flexShrink: 0, textAlign: "center", color: "var(--text2)", userSelect: "none" }}>+62</div>
+            <input style={{ ...inputStyle, flex: 1 }} placeholder="8123456789" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))} />
+          </div>
           <Btn primary full onClick={sendOtp}>{busy ? "Sending…" : "Continue with WhatsApp"}</Btn>
           <Body size={12} dim style={{ textAlign: "center" }}>We'll send a one-time code to your WhatsApp</Body>
         </Col>
