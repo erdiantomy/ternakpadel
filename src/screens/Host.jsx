@@ -33,13 +33,16 @@ function HostCourtCard({ court, idx, A, target }) {
 }
 
 export function HostConsole({ S, A }) {
-  const target = 21;
-  const allDone = S.live.courts.every((c) => c.a >= target || c.b >= target);
-  const nextPairs = [
+  const live = S.live || { courts: [] };
+  const target = live.courts[0]?.target || 21;
+  const allDone = live.courts.length > 0 && live.courts.every((c) => c.a >= target || c.b >= target);
+  const nextPairs = live.nextPairs || [
     ["Rina / Andre", "Tomy / Eko"],
     ["Dina / Bayu", "Maya / Dimas"],
     ["Sari / Raka", "Fitri + walk-in"],
   ];
+  const resting = live.resting || "Putri, Hendra, Citra, Yoga";
+  const checkedIn = live.checkedIn ?? 16, totalPlayers = live.totalPlayers ?? 16;
   return (
     <div style={{ background: "var(--bg)", height: "100%", display: "flex", boxSizing: "border-box", minWidth: 980, overflow: "hidden" }}>
       {/* left rail — event context */}
@@ -56,16 +59,16 @@ export function HostConsole({ S, A }) {
             <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--danger)", animation: "tpPulse 1.2s infinite" }} />
             <Body size={11.5} bold color="var(--accent-text)">LIVE</Body>
           </Row>
-          <Disp size={17}>Friday Night Americano</Disp>
-          <Body size={12} dim style={{ marginTop: 3 }}>Padel Pro SCBD · 3 courts aktif</Body>
+          <Disp size={17}>{live.title || "Friday Night Americano"}</Disp>
+          <Body size={12} dim style={{ marginTop: 3 }}>{live.venue || "Padel Pro SCBD"} · {live.courts.length} courts aktif</Body>
         </Card>
         <Row gap={8}>
           <Card pad={11} style={{ flex: 1, textAlign: "center" }}>
-            <Num size={20}>{S.live.round}<span style={{ fontSize: 13, color: "var(--text2)" }}>/7</span></Num>
+            <Num size={20}>{live.round}<span style={{ fontSize: 13, color: "var(--text2)" }}>/{live.totalRounds || 7}</span></Num>
             <Body size={10} dim bold style={{ marginTop: 3, textTransform: "uppercase" }}>Round</Body>
           </Card>
           <Card pad={11} style={{ flex: 1, textAlign: "center" }}>
-            <Num size={20}>16<span style={{ fontSize: 13, color: "var(--text2)" }}>/16</span></Num>
+            <Num size={20}>{checkedIn}<span style={{ fontSize: 13, color: "var(--text2)" }}>/{totalPlayers}</span></Num>
             <Body size={10} dim bold style={{ marginTop: 3, textTransform: "uppercase" }}>Checked in</Body>
           </Card>
         </Row>
@@ -89,20 +92,22 @@ export function HostConsole({ S, A }) {
       {/* center — courts */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12, padding: "calc(18px + env(safe-area-inset-top)) 18px calc(18px + env(safe-area-inset-bottom))", boxSizing: "border-box", overflowY: "auto", minWidth: 0 }}>
         <Row style={{ justifyContent: "space-between" }}>
-          <Disp size={21}>Courts — Round {S.live.round}</Disp>
+          <Disp size={21}>Courts — Round {live.round}</Disp>
           <Body size={12.5} dim>Tap +1 to score · syncs to every phone instantly</Body>
         </Row>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          {S.live.courts.map((c, i) => (
+          {live.courts.map((c, i) => (
             <HostCourtCard key={c.id} court={c} idx={i} A={A} target={target} />
           ))}
-          <Card pad={18} style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 8, borderStyle: "dashed", minHeight: 180 }}>
-            <Body size={13} dim>Court 4 — resting</Body>
-            <Body size={12.5} dim style={{ textAlign: "center" }}>Putri, Hendra, Citra, Yoga<br />back in next round</Body>
-          </Card>
+          {resting && (
+            <Card pad={18} style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 8, borderStyle: "dashed", minHeight: 180 }}>
+              <Body size={13} dim>Court {live.courts.length + 1} — resting</Body>
+              <Body size={12.5} dim style={{ textAlign: "center" }}>{resting}<br />back in next round</Body>
+            </Card>
+          )}
         </div>
         <Btn primary full onClick={A.endRound} style={{ padding: "16px 18px", fontSize: 16, opacity: allDone ? 1 : 0.9 }}>
-          {allDone ? "End round " + S.live.round + " → generate Round " + (S.live.round + 1) + " pairings" : "End round early → next pairings"}
+          {allDone ? "End round " + live.round + " → generate Round " + (live.round + 1) + " pairings" : "End round early → next pairings"}
         </Btn>
       </div>
 

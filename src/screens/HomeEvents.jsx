@@ -41,17 +41,17 @@ function MatchDayHero({ ev, joined, onOpen, onCheckin, checkedIn }) {
       <div style={{ position: "absolute", right: -30, top: -30, width: 130, height: 130, borderRadius: "50%", background: "var(--accent-soft)" }} />
       <Col gap={8} style={{ position: "relative" }}>
         <Row style={{ justifyContent: "space-between" }}>
-          <Body size={11.5} bold color="var(--accent-text)" style={{ letterSpacing: "0.08em" }}>TODAY · 19:00</Body>
+          <Body size={11.5} bold color="var(--accent-text)" style={{ letterSpacing: "0.08em" }}>{ev.today ? "TODAY" : ev.day} · {ev.time || "19:00"}</Body>
           <Body size={11.5} dim>{ev.joined + (joined ? 1 : 0)}/{ev.max} players</Body>
         </Row>
         <Disp size={22}>{ev.title}</Disp>
         <Body size={13} dim>{ev.venue} · {ev.courts} courts · +{ev.pts} pts</Body>
         <Row style={{ justifyContent: "space-between", marginTop: 4 }}>
           <Row gap={0}>
-            {["RW", "BN", "SK", "AH"].map((i, n) => (
-              <div key={i} style={{ marginLeft: n ? -10 : 0 }}><Ava ini={i} d={28} /></div>
+            {(ev.avatars || ["RW", "BN", "SK", "AH"]).slice(0, 4).map((i, n) => (
+              <div key={i + n} style={{ marginLeft: n ? -10 : 0 }}><Ava ini={i} d={28} /></div>
             ))}
-            <Body size={12} dim style={{ marginLeft: 7 }}>+{ev.joined - 4 + (joined ? 1 : 0)}</Body>
+            <Body size={12} dim style={{ marginLeft: 7 }}>+{Math.max(0, ev.joined - 4 + (joined ? 1 : 0))}</Body>
           </Row>
           {joined
             ? <Btn small primary={!checkedIn} ghost={checkedIn} onClick={(e) => { e.stopPropagation(); onCheckin(); }}>{checkedIn ? "✓ Checked in" : "Check in"}</Btn>
@@ -72,10 +72,10 @@ function greeting() {
 
 export function HomeScreen({ S, A, layout }) {
   const ev = S.events[0];
-  const hero = (
+  const hero = ev ? (
     <MatchDayHero ev={ev} joined={S.joined[ev.id]} checkedIn={S.checkedIn}
       onOpen={() => A.openEvent(ev.id)} onCheckin={A.checkIn} />
-  );
+  ) : null;
   const form = (
     <Row gap={8}>
       {[
@@ -123,7 +123,7 @@ export function HomeScreen({ S, A, layout }) {
       <Row style={{ justifyContent: "space-between" }}>
         <Col gap={1}>
           <Body size={12.5} dim>{greeting()}</Body>
-          <Disp size={21}>Tomy 👋</Disp>
+          <Disp size={21}>{(S.me?.name || "Tomy").split(" ")[0]} 👋</Disp>
         </Col>
         <Row gap={8}>
           <button onClick={A.openSettings} title="Settings" style={{
@@ -137,7 +137,7 @@ export function HomeScreen({ S, A, layout }) {
             </svg>
           </button>
           <div style={{ position: "relative" }}>
-            <Ava ini="TS" d={36} ring />
+            <Ava ini={S.me?.initials || "TS"} d={36} ring />
             <div style={{ position: "absolute", top: -2, right: -2, width: 9, height: 9, borderRadius: "50%", background: "var(--accent)" }} />
           </div>
         </Row>
@@ -223,7 +223,7 @@ export function EventDetail({ S, A, ev }) {
         <Body size={13.5} dim>{ev.desc}</Body>
         <SecHead right={(ev.joined + (joined ? 1 : 0)) + "/" + ev.max}>Players</SecHead>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-          {joined && <Pill small on>TS You</Pill>}
+          {joined && <Pill small on>{S.me?.initials || "TS"} You</Pill>}
           {ev.roster.map((r) => <Pill key={r} small>{ROSTER_NAMES[r] || r}</Pill>)}
         </div>
         {ev.live && (
@@ -231,7 +231,7 @@ export function EventDetail({ S, A, ev }) {
             <Row style={{ justifyContent: "space-between" }}>
               <Row gap={8}>
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--danger)", animation: "tpPulse 1.2s infinite" }} />
-                <Body size={13.5} bold>Live now — Round 3 of 7</Body>
+                <Body size={13.5} bold>Live now — Round {S.live?.round || 3} of {S.live?.totalRounds || 7}</Body>
               </Row>
               <Body size={13} bold color="var(--accent-text)">Watch →</Body>
             </Row>

@@ -5,7 +5,9 @@ import { Disp, Body, Num, Card, Ava, Pill, Btn, Row, Col, SecHead, Spark, Sheet 
 // Profile / career screen, share-card overlay, create-match sheet, onboarding.
 
 export function ProfileScreen({ S, A }) {
-  const me = TP_DATA.me;
+  const me = S.me || TP_DATA.me;
+  const badges = S.badges || TP_DATA.badges;
+  const seasons = S.seasons || TP_DATA.seasons;
   return (
     <Col gap={12} style={{ padding: "calc(14px * var(--sp)) 16px 90px" }}>
       <Row gap={12}>
@@ -39,9 +41,9 @@ export function ProfileScreen({ S, A }) {
         </Row>
       </Card>
 
-      <SecHead right={S.badgesGot + "/" + TP_DATA.badges.length}>Badges</SecHead>
+      <SecHead right={S.badgesGot + "/" + badges.length}>Badges</SecHead>
       <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
-        {TP_DATA.badges.map((b) => {
+        {badges.map((b) => {
           const got = b.got || (b.id === "b4" && S.streak >= 10);
           return (
             <Card key={b.id} pad={10} style={{ minWidth: 86, textAlign: "center", opacity: got ? 1 : 0.45 }} accent={got}>
@@ -77,7 +79,7 @@ export function ProfileScreen({ S, A }) {
 
       <SecHead>Seasons</SecHead>
       <Row gap={7}>
-        {TP_DATA.seasons.map((s) => <Pill key={s.id} small on={s.now}>{s.name} · {s.id === "s3" ? "#" + S.rank : s.rank}</Pill>)}
+        {seasons.map((s) => <Pill key={s.id} small on={s.now}>{s.name} · {s.now ? "#" + S.rank : s.rank}</Pill>)}
       </Row>
       <Body size={11.5} dim style={{ textAlign: "center", marginTop: 4 }}>Nothing is deleted. Everything accumulates.</Body>
     </Col>
@@ -112,8 +114,8 @@ export function ShareOverlay({ S, A }) {
           <Col gap={6} style={{ position: "relative" }}>
             <Body size={11} bold color="var(--accent)" style={{ letterSpacing: "0.12em" }}>VICTORY</Body>
             <Num size={46} color="#fff">{S.matchResult ? S.matchResult.a + "–" + S.matchResult.b : "6–3"}</Num>
-            <Body size={12} color="#a3a3a3">Tomy / Dina def. Andre / Sari</Body>
-            <Body size={11} color="#71717a">Friday Night Americano · +12 pts</Body>
+            <Body size={12} color="#a3a3a3">{S.shareLine || "Tomy / Dina def. Andre / Sari"}</Body>
+            <Body size={11} color="#71717a">{S.shareSub || "Friday Night Americano · +12 pts"}</Body>
           </Col>
         ) : (
           <Col gap={6} style={{ position: "relative" }}>
@@ -123,8 +125,8 @@ export function ShareOverlay({ S, A }) {
           </Col>
         )}
         <Row style={{ justifyContent: "space-between", position: "relative" }}>
-          <Body size={11} bold color="#fff">@tomy</Body>
-          <Body size={10} color="#71717a">ternakpadel.id</Body>
+          <Body size={11} bold color="#fff">{(S.me && S.me.user) || "@tomy"}</Body>
+          <Body size={10} color="#71717a">ternakpadel.xyz</Body>
         </Row>
       </div>
       <Row gap={8}>
@@ -145,15 +147,19 @@ export function CreateSheet({ S, A }) {
   const [format, setFormat] = React.useState("Americano");
   const [courts, setCourts] = React.useState(4);
   const [max, setMax] = React.useState(16);
+  const [when, setWhen] = React.useState("");
   const formats = ["Americano", "Mexicano", "KOTH", "Knockout", "League", "Mixicano"];
+  const inputStyle = {
+    background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12,
+    padding: "12px 14px", color: "var(--text)", fontFamily: "var(--font-body)", fontSize: 14, outline: "none",
+    colorScheme: "dark light",
+  };
   return (
     <Sheet open={S.creating} onClose={() => A.setCreating(false)} title="Create match">
       <Col gap={12}>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Event name — e.g. Sunday Mexicano"
-          style={{
-            background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12,
-            padding: "12px 14px", color: "var(--text)", fontFamily: "var(--font-body)", fontSize: 14, outline: "none",
-          }} />
+          style={inputStyle} />
+        <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} style={inputStyle} />
         <Body size={12} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: -6 }}>Format</Body>
         <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
           {formats.map((f) => <Pill key={f} small on={format === f} onClick={() => setFormat(f)}>{f}</Pill>)}
@@ -171,7 +177,7 @@ export function CreateSheet({ S, A }) {
           ))}
         </Row>
         <Body size={11.5} dim>Smart matchmaking will balance pairings by ranking, partner history and social mixing.</Body>
-        <Btn primary full onClick={() => A.createEvent(name || ("New " + format), format, courts, max)}>Create & open registration</Btn>
+        <Btn primary full onClick={() => A.createEvent(name || ("New " + format), format, courts, max, when)}>Create & open registration</Btn>
       </Col>
     </Sheet>
   );

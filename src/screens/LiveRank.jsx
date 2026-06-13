@@ -5,16 +5,24 @@ import { Disp, Body, Num, Card, Ava, Pill, Btn, Seg, Row, Col, SecHead } from ".
 
 export function MatchesScreen({ S, A }) {
   const live = S.live;
+  if (!live || !live.courts.length) {
+    return (
+      <Col gap={12} style={{ padding: "calc(14px * var(--sp)) 16px 90px" }}>
+        <Disp size={24}>Matches</Disp>
+        <Body size={13.5} dim>No live event right now. Join an event and come back when it starts — courts and scores show up here in real time.</Body>
+      </Col>
+    );
+  }
   return (
     <Col gap={12} style={{ padding: "calc(14px * var(--sp)) 16px 90px" }}>
       <Row style={{ justifyContent: "space-between" }}>
         <Disp size={24}>Matches</Disp>
         <Row gap={6}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--danger)", animation: "tpPulse 1.2s infinite" }} />
-          <Body size={12.5} bold>LIVE · Round {live.round}/7</Body>
+          <Body size={12.5} bold>LIVE · Round {live.round}/{live.totalRounds || 7}</Body>
         </Row>
       </Row>
-      <Body size={13} dim style={{ marginTop: -8 }}>Friday Night Americano · Padel Pro SCBD</Body>
+      <Body size={13} dim style={{ marginTop: -8 }}>{live.title || "Friday Night Americano"} · {live.venue || "Padel Pro SCBD"}</Body>
 
       {live.courts.map((c, i) => (
         <Card key={c.id} accent={c.yours} onClick={c.yours ? () => A.setScorer(true) : undefined}>
@@ -56,7 +64,7 @@ export function MatchesScreen({ S, A }) {
 }
 
 export function ScorerOverlay({ S, A }) {
-  const c = S.live.courts.find((x) => x.yours);
+  const c = S.live?.courts.find((x) => x.yours);
   if (!S.scorer || !c) return null;
   const done = S.matchResult;
   return (
@@ -65,7 +73,7 @@ export function ScorerOverlay({ S, A }) {
         <button onClick={() => A.setScorer(false)} style={{ background: "var(--surface)", border: "1px solid var(--line)", color: "var(--text)", borderRadius: 999, padding: "6px 13px", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>↓ Close</button>
         <Row gap={6}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--danger)", animation: "tpPulse 1.2s infinite" }} />
-          <Body size={12.5} bold>Court 2 · Round {S.live.round} · to 21</Body>
+          <Body size={12.5} bold>Court {c.court || 2} · Round {S.live.round} · to {c.target || 21}</Body>
         </Row>
       </Row>
 
@@ -76,7 +84,7 @@ export function ScorerOverlay({ S, A }) {
               <Card key={side} accent={side === "A"} pad={18}>
                 <Row style={{ justifyContent: "space-between" }}>
                   <Col gap={3}>
-                    <Body size={12} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.06em" }}>{side === "A" ? "You & Dina" : "Opponents"}</Body>
+                    <Body size={12} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.06em" }}>{side === (c.mySide || "A") ? "Your team" : "Opponents"}</Body>
                     <Body size={16} bold>{team}</Body>
                   </Col>
                   <Num size={52}>{score}</Num>
@@ -99,7 +107,7 @@ export function ScorerOverlay({ S, A }) {
           <Num size={40} color="var(--accent-text)">{done.a}–{done.b}</Num>
           <Body size={14} dim>
             {done.won
-              ? "+12 ranking points · streak W" + S.streak + (S.rank < done.prevRank ? " · Rank #" + done.prevRank + " → #" + S.rank + " 🎉" : "")
+              ? "+" + (done.pts || 12) + " ranking points · streak W" + S.streak + (S.rank < done.prevRank ? " · Rank #" + done.prevRank + " → #" + S.rank + " 🎉" : "")
               : "+2 participation points · streak reset"}
           </Body>
           <Col gap={8} style={{ width: "100%", marginTop: 8 }}>
@@ -118,9 +126,10 @@ export function RankingsScreen({ S }) {
   const [period, setPeriod] = React.useState("Season");
   const [div, setDiv] = React.useState("All");
   const sorted = S.players.slice().sort((a, b) => b.pts - a.pts);
+  const hasPodium = sorted.length >= 3;
   const podium = sorted.slice(0, 3);
-  const rest = sorted.slice(3);
-  const order = [podium[1], podium[0], podium[2]];
+  const rest = hasPodium ? sorted.slice(3) : sorted;
+  const order = hasPodium ? [podium[1], podium[0], podium[2]] : [];
   const hs = [64, 84, 52];
   return (
     <Col gap={12} style={{ padding: "calc(14px * var(--sp)) 16px 90px" }}>
@@ -131,7 +140,7 @@ export function RankingsScreen({ S }) {
           <Pill key={d} small on={div === d} onClick={() => setDiv(d)}>{d}</Pill>
         ))}
       </div>
-      <Row gap={10} style={{ alignItems: "flex-end", justifyContent: "center", padding: "8px 0 2px" }}>
+      {hasPodium && <Row gap={10} style={{ alignItems: "flex-end", justifyContent: "center", padding: "8px 0 2px" }}>
         {order.map((p, i) => (
           <Col key={p.id} gap={5} style={{ alignItems: "center", flex: 1 }}>
             <Ava ini={p.initials} d={i === 1 ? 46 : 38} ring={i === 1} />
@@ -145,14 +154,14 @@ export function RankingsScreen({ S }) {
             </div>
           </Col>
         ))}
-      </Row>
+      </Row>}
       <Card pad={8}>
         {rest.map((p, i) => (
           <Row key={p.id} gap={10} style={{
             padding: "8px 8px", borderRadius: 10,
             background: p.me ? "var(--accent-soft)" : "transparent",
           }}>
-            <Num size={14} style={{ width: 20 }} color="var(--text2)">{i + 4}</Num>
+            <Num size={14} style={{ width: 20 }} color="var(--text2)">{i + (hasPodium ? 4 : 1)}</Num>
             <Ava ini={p.initials} d={28} ring={p.me} />
             <Body size={13.5} bold={p.me} style={{ flex: 1 }}>{p.name}{p.me ? " (you)" : ""}</Body>
             {p.me && S.rankDelta > 0 && <Body size={12} bold color="var(--success)">↑{S.rankDelta}</Body>}
