@@ -118,19 +118,24 @@ export function LiveOnboarding({ session, profile, onDone, toast }) {
           <div style={{ width: 52, height: 52, borderRadius: "50%", background: "color-mix(in oklab, var(--success) 20%, var(--surface))", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>💬</div>
           <Disp size={21}>Check WhatsApp</Disp>
           <Body size={13} dim style={{ marginTop: -6 }}>Code sent to {phone.slice(0, 6)} •••• {phone.slice(-4)}</Body>
-          <input ref={otpRef} autoFocus value={otp} inputMode="numeric" autoComplete="one-time-code"
-            onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            style={{ position: "absolute", opacity: 0, pointerEvents: "none" }} />
-          <Row gap={7}>
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <div key={i} style={{
-                width: 40, height: 50, borderRadius: 12,
-                border: "1.5px solid " + (otp.length > i ? "var(--accent)" : "var(--line)"),
-                background: "var(--surface)", display: "flex", alignItems: "center", justifyContent: "center",
-                fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, color: "var(--text)",
-              }}>{otp[i] || ""}</div>
-            ))}
-          </Row>
+          <div style={{ position: "relative" }}>
+            <Row gap={7}>
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <div key={i} style={{
+                  width: 40, height: 50, borderRadius: 12,
+                  border: "1.5px solid " + (otp.length > i ? "var(--accent)" : "var(--line)"),
+                  background: "var(--surface)", display: "flex", alignItems: "center", justifyContent: "center",
+                  fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, color: "var(--text)",
+                }}>{otp[i] || ""}</div>
+              ))}
+            </Row>
+            {/* A real, tappable input sits invisibly over the boxes so a direct
+                tap opens the keyboard reliably on iOS (programmatic focus does not). */}
+            <input ref={otpRef} autoFocus value={otp} inputMode="numeric" autoComplete="one-time-code"
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%",
+                opacity: 0, fontSize: 16, border: "none", background: "transparent", cursor: "pointer" }} />
+          </div>
           {busy
             ? <Body size={12} dim>Verifying…</Body>
             : <button onClick={sendOtp} style={{ background: "none", border: "none", color: "var(--text2)", fontFamily: "var(--font-body)", fontSize: 12, cursor: "pointer" }}>Didn't get it? Resend code</button>}
