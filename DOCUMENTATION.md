@@ -77,12 +77,12 @@ Namecheap (DNS).
 
 ## 3. Roles
 
-There is **no separate admin UI**. Privilege tiers:
+Privilege tiers (highest first):
 
 | Role | Who | Powers | How granted |
 |---|---|---|---|
-| **Owner / Admin** | You | Full control via the **Supabase + GitHub + Google + Xendit dashboards**: schema, users, config, payments, deploys. | You own the accounts. |
-| **Host** | A player with `profiles.is_host = true`, **or** the creator of an event | Opens the **Host Console** for a live event (courtside scoring, round management, live standings). | Set `is_host = true` (see §5.1). Event creators auto-host their own event. |
+| **Superadmin** | A profile with `is_admin = true` | The in-app **Admin Console** at `/admin` (§5): all payments, members, events, matches, content; plus full dashboard access. | Run `0002_admin.sql`, set `is_admin = true` (§5). |
+| **Host** | A player with `profiles.is_host = true`, **or** the creator of an event | Opens the **Host Console** for a live event (courtside scoring, round management, live standings). | Set `is_host = true` (see §6.1 or the Admin Console). Event creators auto-host their own event. |
 | **Player / Member** | Anyone who signs in with Google | Complete profile, join & pay for events, play, view rankings/feed/profile, create events. | Self-service via Google sign-in. |
 
 > Any signed-in player can create an event (and becomes its host). The Host
@@ -119,9 +119,38 @@ Login = **Google OAuth**. Supabase config required (one-time):
 
 ---
 
-## 5. Admin playbook (you)
+## 5. Admin Console (in-app, `/admin`)
 
-### 5.1 Make someone a host
+A superadmin web console lives at **https://ternakpadel.xyz/admin**. It shows and
+manages all operational data in one place — no dashboard digging needed.
+
+**Tabs:** Overview (members, paid revenue, pending payments, active events, live
+matches, posts) · Members (grant/revoke host & admin) · Payments (every payment,
+filter by status, open the Xendit invoice) · Events (create + change status) ·
+Matches (live scores) · Content (post announcements to the community feed).
+
+**One-time enable:**
+1. Supabase → SQL editor → run `supabase/migrations/0002_admin.sql` (adds the
+   `is_admin` flag, an `is_admin()` helper, and admin RLS policies so the console
+   can read all payments / manage all events, matches, content).
+2. Grant yourself superadmin:
+   ```sql
+   update public.profiles set is_admin = true
+   where id = (select id from auth.users where email = 'YOUR_GOOGLE_EMAIL');
+   ```
+3. Supabase → Auth → URL config → ensure Redirect URLs include
+   `https://ternakpadel.xyz/**` (covers `/admin`).
+4. Open `/admin`, sign in with that Google account. (If it says "Not authorized",
+   you haven't run steps 1–2, or need to sign out/in to refresh the flag.)
+
+Access is enforced server-side by RLS (`is_admin()`), not just hidden in the UI —
+a non-admin cannot read payments or write operational tables even via the API.
+
+---
+
+## 6. Admin playbook (you)
+
+### 6.1 Make someone a host
 Supabase → SQL editor:
 ```sql
 update public.profiles
@@ -130,11 +159,11 @@ where id = (select id from auth.users where email = 'person@gmail.com');
 ```
 Or Table editor → `profiles` → find the row → toggle `is_host` → save.
 
-### 5.2 See / manage users
+### 6.2 See / manage users
 Auth → Users lists every Google sign-in. Profile data (name, skill, city,
 host flag) lives in Table editor → `profiles` (keyed by the same `id`).
 
-### 5.3 Start a live event
+### 6.3 Start a live event
 1. The event exists (a host created it in-app, or insert in `events`).
 2. Table editor → `events` → set the event's `status` = `live`.
 3. Create round-1 `matches` rows (or let the host start pairings in-app).
@@ -142,28 +171,28 @@ host flag) lives in Table editor → `profiles` (keyed by the same `id`).
    Console (Settings ⚙ → Open host console): score, **End round** auto-generates
    next pairings, **End match** posts results, points, ranks, badges, feed.
 
-### 5.4 Payments
+### 6.4 Payments
 - Invoices are created by `create-invoice`; `xendit-webhook` flips
   `event_players.paid = true` on confirmation.
 - Test vs live: until Xendit KYC is approved, use **Test mode** keys — the full
   flow works with test payment methods. After approval, swap `XENDIT_SECRET_KEY`
   to the live key and re-register the webhook URL for live mode.
 
-### 5.5 Season rollover (manual)
+### 6.5 Season rollover (manual)
 ```sql
 update public.seasons set is_current = false where is_current = true;
 insert into public.seasons (name, starts_on, ends_on, is_current)
 values ('Season 2026/27', '2026-09-01', '2027-08-31', true);
 ```
 
-### 5.6 Deploy / ship code
+### 6.6 Deploy / ship code
 Push to `main` → GitHub Actions builds and publishes to Pages automatically
 (~1–2 min). Manual run: Actions → Deploy to GitHub Pages → Run workflow. Live
 mode requires the two `VITE_SUPABASE_*` Actions secrets to be set.
 
 ---
 
-## 6. Host guide (running an event)
+## 7. Host guide (running an event)
 
 1. Sign in (Google) on https://ternakpadel.xyz.
 2. **Create an event:** tap the **+** (FAB) → name, format (Americano, Mexicano,
@@ -177,7 +206,7 @@ mode requires the two `VITE_SUPABASE_*` Actions secrets to be set.
 
 ---
 
-## 7. Player guide (members)
+## 8. Player guide (members)
 
 1. Open https://ternakpadel.xyz.
 2. Tap **Continue with Google** → pick your account.
@@ -192,7 +221,7 @@ mode requires the two `VITE_SUPABASE_*` Actions secrets to be set.
 
 ---
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Symptom | Likely cause / fix |
 |---|---|
@@ -204,7 +233,7 @@ mode requires the two `VITE_SUPABASE_*` Actions secrets to be set.
 
 ---
 
-## 9. Data model (tables)
+## 10. Data model (tables)
 
 `profiles` · `seasons` · `player_points` · `rank_history` · `events` ·
 `event_players` · `payments` · `matches` · `feed_posts` · `feed_likes` ·
