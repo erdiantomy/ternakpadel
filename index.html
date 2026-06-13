@@ -11,6 +11,13 @@
 </head>
 <body>
 <div id="root"></div>
+<script>
+// Restore a deep path saved by 404.html, before the app bundle reads the URL.
+(function () {
+  var r = sessionStorage.getItem("spa_redirect");
+  if (r) { sessionStorage.removeItem("spa_redirect"); history.replaceState(null, "", r); }
+})();
+</script>
 <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>
