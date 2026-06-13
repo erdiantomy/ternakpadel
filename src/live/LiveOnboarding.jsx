@@ -16,6 +16,15 @@ const normalizePhone = (raw) => {
 const initialsOf = (name) =>
   name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || "").join("") || "?";
 
+// A hung auth request must never look like "nothing happening": race it
+// against a timeout so the user always gets a visible message.
+const withTimeout = (p, ms = 15000) =>
+  Promise.race([
+    p,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("request timed out — is Supabase phone auth enabled?")), ms)),
+  ]);
+
 export function LiveOnboarding({ session, profile, onDone, toast }) {
   // session may already exist (returning user with incomplete profile)
   const [step, setStep] = React.useState(session ? 2 : 0);
@@ -39,7 +48,7 @@ export function LiveOnboarding({ session, profile, onDone, toast }) {
     if (!/^\+\d{9,15}$/.test(p)) return toast("Enter a valid WhatsApp number");
     setBusy(true);
     try {
-      const { error } = await supabase.auth.signInWithOtp({ phone: p });
+      const { error } = await withTimeout(supabase.auth.signInWithOtp({ phone: p }));
       if (error) { toast(error.message); return; }
       setPhone(p);
       setStep(1);
@@ -54,7 +63,7 @@ export function LiveOnboarding({ session, profile, onDone, toast }) {
   const verify = async (token) => {
     setBusy(true);
     try {
-      const { error } = await supabase.auth.verifyOtp({ phone, token, type: "sms" });
+      const { error } = await withTimeout(supabase.auth.verifyOtp({ phone, token, type: "sms" }));
       if (error) { setOtp(""); toast(error.message || "Wrong code — try again"); return; }
       setStep(2);
     } catch (e) {
