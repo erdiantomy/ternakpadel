@@ -38,20 +38,30 @@ export function LiveOnboarding({ session, profile, onDone, toast }) {
     const p = normalizePhone(phone);
     if (!/^\+\d{9,15}$/.test(p)) return toast("Enter a valid WhatsApp number");
     setBusy(true);
-    const { error } = await supabase.auth.signInWithOtp({ phone: p });
-    setBusy(false);
-    if (error) return toast(error.message);
-    setPhone(p);
-    setStep(1);
-    setOtp("");
+    try {
+      const { error } = await supabase.auth.signInWithOtp({ phone: p });
+      if (error) { toast(error.message); return; }
+      setPhone(p);
+      setStep(1);
+      setOtp("");
+    } catch (e) {
+      toast("Couldn't reach server: " + (e?.message || e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const verify = async (token) => {
     setBusy(true);
-    const { error } = await supabase.auth.verifyOtp({ phone, token, type: "sms" });
-    setBusy(false);
-    if (error) { setOtp(""); return toast("Wrong code — try again"); }
-    setStep(2);
+    try {
+      const { error } = await supabase.auth.verifyOtp({ phone, token, type: "sms" });
+      if (error) { setOtp(""); toast(error.message || "Wrong code — try again"); return; }
+      setStep(2);
+    } catch (e) {
+      setOtp(""); toast("Verification failed: " + (e?.message || e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   React.useEffect(() => {
