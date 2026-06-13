@@ -2,37 +2,32 @@ import React from "react";
 import { supabase } from "../lib/supabase.js";
 import { Disp, Body, Card, Ava, Pill, Btn, Row, Col } from "../components/atoms.jsx";
 
-// Real onboarding: WhatsApp OTP via Supabase phone auth (delivered by the
-// send-otp-whatsapp edge function → Fonnte), then profile setup questions.
-
-const normalizePhone = (raw) => {
-  let p = raw.replace(/\D/g, "");
-  if (p.startsWith("0")) p = p.slice(1);
-  if (p.startsWith("62")) p = p.slice(2);
-  return "+62" + p;
-};
+// Onboarding: Google sign-in (Supabase OAuth), then profile setup questions.
+// After Google redirects back, a session exists and we resume at the questions;
+// the player's name comes from their Google account.
 
 const initialsOf = (name) =>
-  name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || "").join("") || "?";
+  (name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || "").join("") || "?";
 
-// A hung auth request must never look like "nothing happening": race it
-// against a timeout so the user always gets a visible message.
-const withTimeout = (p, ms = 15000) =>
-  Promise.race([
-    p,
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("request timed out — is Supabase phone auth enabled?")), ms)),
-  ]);
+const googleName = (session) =>
+  session?.user?.user_metadata?.full_name ||
+  session?.user?.user_metadata?.name ||
+  (session?.user?.email ? session.user.email.split("@")[0] : "");
 
 export function LiveOnboarding({ session, profile, onDone, toast }) {
-  // session may already exist (returning user with incomplete profile)
+  // session already exists (returning from Google) → skip straight to questions
   const [step, setStep] = React.useState(session ? 2 : 0);
-  const [name, setName] = React.useState(profile?.full_name || "");
-  const [phone, setPhone] = React.useState("");
-  const [otp, setOtp] = React.useState("");
+  const [name, setName] = React.useState(profile?.full_name || googleName(session) || "");
   const [busy, setBusy] = React.useState(false);
   const [answers, setAnswers] = React.useState({});
-  const otpRef = React.useRef(null);
+
+  // if a session arrives while mounted (OAuth completes), advance + grab the name
+  React.useEffect(() => {
+    if (session) {
+      setName((n) => n || googleName(session) || "");
+      setStep((s) => (s === 0 ? 2 : s));
+    }
+  }, [session]);
 
   const qs = [
     ["Your skill level?", ["Beginner", "Intermediate", "Advanced", "Competitive"], "skill"],
@@ -41,45 +36,20 @@ export function LiveOnboarding({ session, profile, onDone, toast }) {
     ["What are you here for?", ["Social", "Improve skills", "Competitive", "Networking"], "goal"],
   ];
 
-  const sendOtp = async () => {
-    if (!name.trim()) return toast("Enter your name first");
-    const p = normalizePhone(phone);
-    if (!/^\+62\d{8,13}$/.test(p)) return toast("Masukkan nomor WhatsApp yang valid");
+  const signInWithGoogle = async () => {
     setBusy(true);
-    try {
-      const { error } = await withTimeout(supabase.auth.signInWithOtp({ phone: p }));
-      if (error) { toast(error.message); return; }
-      setPhone(p);
-      setStep(1);
-      setOtp("");
-    } catch (e) {
-      toast("Couldn't reach server: " + (e?.message || e));
-    } finally {
-      setBusy(false);
-    }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+    // on success the browser navigates away to Google; only errors return here
+    if (error) { setBusy(false); toast(error.message); }
   };
-
-  const verify = async (token) => {
-    setBusy(true);
-    try {
-      const { error } = await withTimeout(supabase.auth.verifyOtp({ phone, token, type: "sms" }));
-      if (error) { setOtp(""); toast(error.message || "Wrong code — try again"); return; }
-      setStep(2);
-    } catch (e) {
-      setOtp(""); toast("Verification failed: " + (e?.message || e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  React.useEffect(() => {
-    if (step === 1 && otp.length === 6 && !busy) verify(otp);
-  }, [otp, step]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const finishQuestions = async (finalAnswers) => {
     const { data: { user } } = await supabase.auth.getUser();
-    const username = "@" + (name.trim().split(/\s+/)[0] || "player").toLowerCase()
-      + Math.floor(100 + Math.random() * 900);
+    const base = (name.trim().split(/\s+/)[0] || "player").toLowerCase();
+    const username = "@" + base + Math.floor(100 + Math.random() * 900);
     const { error } = await supabase.from("profiles").update({
       full_name: name.trim() || profile?.full_name || "Player",
       username: profile?.username || username,
@@ -92,55 +62,15 @@ export function LiveOnboarding({ session, profile, onDone, toast }) {
     setStep(6);
   };
 
-  const inputStyle = {
-    background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12,
-    padding: "13px 14px", fontFamily: "var(--font-body)", fontSize: 14,
-    color: "var(--text)", outline: "none", width: "100%", boxSizing: "border-box",
-  };
-
   return (
     <div style={{ position: "absolute", inset: 0, zIndex: 100, background: "var(--bg)", display: "flex", flexDirection: "column", padding: "calc(18px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom))" }}>
       {step === 0 && (
-        <Col gap={12} style={{ flex: 1, justifyContent: "center" }}>
+        <Col gap={14} style={{ flex: 1, justifyContent: "center" }}>
           <div style={{ width: 46, height: 46, borderRadius: 13, background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🎾</div>
           <Disp size={28}>Ternak Padel</Disp>
-          <Body size={14} dim style={{ marginTop: -6 }}>Your padel career starts here. No passwords — ever.</Body>
-          <input style={inputStyle} placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
-          <div style={{ display: "flex", gap: 8, width: "100%" }}>
-            <div style={{ ...inputStyle, width: 64, flexShrink: 0, textAlign: "center", color: "var(--text2)", userSelect: "none" }}>+62</div>
-            <input style={{ ...inputStyle, flex: 1 }} placeholder="8123456789" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))} />
-          </div>
-          <Btn primary full onClick={sendOtp}>{busy ? "Sending…" : "Continue with WhatsApp"}</Btn>
-          <Body size={12} dim style={{ textAlign: "center" }}>We'll send a one-time code to your WhatsApp</Body>
-        </Col>
-      )}
-      {step === 1 && (
-        <Col gap={14} style={{ flex: 1, justifyContent: "center", alignItems: "center", textAlign: "center" }}
-             onClick={() => otpRef.current?.focus()}>
-          <div style={{ width: 52, height: 52, borderRadius: "50%", background: "color-mix(in oklab, var(--success) 20%, var(--surface))", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>💬</div>
-          <Disp size={21}>Check WhatsApp</Disp>
-          <Body size={13} dim style={{ marginTop: -6 }}>Code sent to {phone.slice(0, 6)} •••• {phone.slice(-4)}</Body>
-          <div style={{ position: "relative" }}>
-            <Row gap={7}>
-              {[0, 1, 2, 3, 4, 5].map((i) => (
-                <div key={i} style={{
-                  width: 40, height: 50, borderRadius: 12,
-                  border: "1.5px solid " + (otp.length > i ? "var(--accent)" : "var(--line)"),
-                  background: "var(--surface)", display: "flex", alignItems: "center", justifyContent: "center",
-                  fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, color: "var(--text)",
-                }}>{otp[i] || ""}</div>
-              ))}
-            </Row>
-            {/* A real, tappable input sits invisibly over the boxes so a direct
-                tap opens the keyboard reliably on iOS (programmatic focus does not). */}
-            <input ref={otpRef} autoFocus value={otp} inputMode="numeric" autoComplete="one-time-code"
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              style={{ position: "absolute", inset: 0, width: "100%", height: "100%",
-                opacity: 0, fontSize: 16, border: "none", background: "transparent", cursor: "pointer" }} />
-          </div>
-          {busy
-            ? <Body size={12} dim>Verifying…</Body>
-            : <button onClick={sendOtp} style={{ background: "none", border: "none", color: "var(--text2)", fontFamily: "var(--font-body)", fontSize: 12, cursor: "pointer" }}>Didn't get it? Resend code</button>}
+          <Body size={14} dim style={{ marginTop: -6 }}>Your padel career starts here. One tap to join — no passwords.</Body>
+          <Btn primary full onClick={signInWithGoogle}>{busy ? "Opening Google…" : "Continue with Google"}</Btn>
+          <Body size={12} dim style={{ textAlign: "center" }}>We use your Google name and email to set up your profile.</Body>
         </Col>
       )}
       {step >= 2 && step <= 5 && (() => {
