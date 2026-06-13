@@ -54,6 +54,12 @@ export function SettingsSheet({ open, t, setT, A }) {
           <Label>Account</Label>
           <Btn full ghost onClick={A.replayOnboarding}>Replay onboarding</Btn>
         </Col>
+        <Col gap={7}>
+          <Label>Help</Label>
+          <a href="/GUIDE.pdf" download style={{ textDecoration: "none" }}>
+            <Btn full ghost>📄 Download Guide (PDF)</Btn>
+          </a>
+        </Col>
       </Col>
     </Sheet>
   );

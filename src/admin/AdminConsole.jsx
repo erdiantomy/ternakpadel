@@ -179,6 +179,7 @@ export default function AdminConsole() {
         <div style={{ marginTop: "auto", fontSize: 12, color: "var(--text2)" }}>
           <div style={{ marginBottom: 8 }}>{me.full_name || session.user.email}</div>
           <a href="/" style={{ color: "var(--text2)", display: "block", marginBottom: 6 }}>← Back to app</a>
+          <a href="/GUIDE.pdf" download style={{ color: "var(--text2)", display: "block", marginBottom: 6 }}>📄 Download Guide</a>
           <button onClick={() => supabase.auth.signOut()} style={{ ...btn("var(--surface)"), padding: "7px 10px", fontSize: 12 }}>Sign out</button>
         </div>
       </aside>
