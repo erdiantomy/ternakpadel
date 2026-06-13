@@ -3,7 +3,7 @@ import { rupiah } from "../data.js";
 import { Disp, Body, Num, Card, Ava, Pill, Btn, Row, Col, SecHead, Sheet } from "../components/atoms.jsx";
 
 export function FeedItem({ post, onLike }) {
-  const kindIcon = { result: "🎾", rank: "📈", badge: "🏅", join: "📅" }[post.kind] || "🎾";
+  const kindIcon = { result: "🎾", rank: "📈", badge: "🏅", join: "📅", announcement: "📣" }[post.kind] || "🎾";
   return (
     <Card>
       <Row>

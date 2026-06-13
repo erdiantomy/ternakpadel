@@ -110,7 +110,7 @@ export default function AdminConsole() {
     if (!announce.trim()) return;
     setBusy(true);
     const { error } = await supabase.from("feed_posts").insert({
-      author: session.user.id, kind: "news", text: announce.trim(), score: "", sub: "Pengumuman",
+      author: session.user.id, kind: "announcement", text: announce.trim(), score: "", sub: "Pengumuman",
     });
     setBusy(false);
     if (error) return toast(error.message);
