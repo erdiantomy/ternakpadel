@@ -100,9 +100,10 @@ export function LiveOnboarding({ session, profile, onDone, toast }) {
       {step === 0 && (
         <Col gap={12} style={{ flex: 1, justifyContent: "center", alignItems: "stretch", textAlign: "center" }}>
           <div style={{ display: "flex", justifyContent: "center" }}><BrandLogo width={268} dark /></div>
-          <Body size={14} dim style={{ marginTop: 2, marginBottom: 4 }}>
-            Your padel career starts here. No password — we email you a one-tap sign-in link.
-          </Body>
+          <Col gap={3} style={{ marginTop: 2, marginBottom: 6, alignItems: "center" }}>
+            <Body size={15} bold>Built for players who want more.</Body>
+            <Body size={14} dim>More matches. More competition. More growth.</Body>
+          </Col>
           <input
             value={name} onChange={(e) => setName(e.target.value)}
             placeholder="Your name" autoComplete="name"
