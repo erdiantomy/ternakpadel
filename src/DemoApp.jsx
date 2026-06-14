@@ -12,7 +12,7 @@ import { HostConsole } from "./screens/Host.jsx";
 const SETTINGS_DEFAULTS = {
   theme: "dark",
   accent: "#C4F22E",
-  font: "inter",
+  font: "brand",
   density: "comfy",
   homeLayout: "matchday",
 };

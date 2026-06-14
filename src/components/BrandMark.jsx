@@ -1,11 +1,17 @@
 import React from "react";
+import logoUrl from "../assets/ternak-logo.png";
 
-// Ternak Padel brand marks, rebuilt as crisp SVG from the logo:
-// royal-blue padel-court cage, tennis-lime balls, arched "Ternak", "padel"
-// with a ball standing in for a letter.
+// Ternak Padel brand marks.
+// BrandLogo  → the real logo artwork (perspective court cage, arched "Ternak",
+//              "padel" spelled with photographic tennis balls).
+// CourtBadge → a tiny app-icon abstraction of the same mark (cage + ball) for
+//              sizes where the full artwork can't read.
 
 const BLUE = "#3D49E3";
 const LIME = "#C4F22E";
+
+// The official logo, exported from the source artwork (transparent PNG).
+export const TERNAK_LOGO_SRC = logoUrl;
 
 // A tennis ball: lime disc with a white seam.
 function Ball({ cx, cy, r }) {
@@ -46,29 +52,23 @@ export function CourtBadge({ size = 46, radius }) {
   );
 }
 
-// Full stacked wordmark for the hero / loading / splash.
+// Full logo for the hero / loading / splash — the real artwork.
+// Native aspect ratio of the source export is ~1319 × 768 (≈ 0.582).
 export function BrandLogo({ width = 300, dark = true }) {
-  const ink = dark ? "#F4F6FF" : "#0A0F26";
-  const navy = dark ? "#C9D2F2" : "#16213F";
   return (
-    <svg width={width} viewBox="0 0 360 232" style={{ display: "block" }} role="img" aria-label="Ternak Padel">
-      <defs>
-        <path id="tp-arc" d="M 64 132 Q 180 64 296 132" />
-      </defs>
-      {/* court cage */}
-      <Court x={18} y={20} w={324} h={192} sw={7} />
-      {/* arched Ternak */}
-      <text fill={ink} fontFamily="'Barlow Condensed','Space Grotesk',sans-serif"
-            fontWeight="700" fontSize="62" letterSpacing="1"
-            style={{ textTransform: "uppercase" }}>
-        <textPath href="#tp-arc" xlinkHref="#tp-arc" startOffset="50%" textAnchor="middle">Ternak</textPath>
-      </text>
-      {/* padel with a tennis-ball letter */}
-      <g fontFamily="'Barlow Condensed','Space Grotesk',sans-serif" fontWeight="700" fontSize="58" fill={navy}>
-        <text x="120" y="186" textAnchor="end" style={{ textTransform: "lowercase" }}>p</text>
-        <Ball cx={142} cy={168} r={17} />
-        <text x="160" y="186" textAnchor="start" style={{ textTransform: "lowercase" }}>del</text>
-      </g>
-    </svg>
+    <img
+      src={logoUrl}
+      width={width}
+      alt="Ternak Padel"
+      style={{
+        display: "block",
+        width,
+        height: "auto",
+        // a soft glow lifts the artwork off the dark hero without a hard card edge
+        filter: dark
+          ? "drop-shadow(0 12px 40px rgba(61,73,227,0.35))"
+          : "drop-shadow(0 10px 30px rgba(10,15,38,0.18))",
+      }}
+    />
   );
 }
