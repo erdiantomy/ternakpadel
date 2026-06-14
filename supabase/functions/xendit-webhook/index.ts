@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     }).eq("id", pay.id);
 
     await admin.from("event_players").upsert({
-      event_id: pay.event_id, player_id: pay.player_id, paid: true,
+      event_id: pay.event_id, player_id: pay.player_id, paid: true, status: "paid",
     });
 
     const { data: ev } = await admin.from("events").select("title,venue").eq("id", pay.event_id).single();
