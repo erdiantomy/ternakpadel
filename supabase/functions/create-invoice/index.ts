@@ -58,8 +58,10 @@ Deno.serve(async (req) => {
         currency: "IDR",
         success_redirect_url: `${appUrl}/?paid=${event_id}`,
         failure_redirect_url: `${appUrl}/?payfail=${event_id}`,
-        // QRIS + the e-wallets from the design; Xendit shows what's enabled on the account
-        payment_methods: ["QRIS", "OVO", "DANA", "SHOPEEPAY", "LINKAJA", "BCA", "BNI", "BRI", "MANDIRI"],
+        // Don't pin payment_methods: in production Xendit rejects the whole
+        // invoice if any listed channel isn't activated on the account. Omitting
+        // it makes Xendit offer exactly the channels you've activated (QRIS,
+        // e-wallets, VA, etc.) — activate more in Settings → Channels.
       }),
     });
     const inv = await res.json();
