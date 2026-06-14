@@ -36,10 +36,11 @@ export function Card({ children, style, onClick, accent, pad }) {
   return (
     <div onClick={onClick} style={{
       background: accent ? "var(--accent-soft)" : "var(--surface)",
-      border: "1px solid " + (accent ? "transparent" : "var(--line)"),
-      borderRadius: 16, padding: pad != null ? pad : "calc(14px * var(--sp))",
+      border: "1px solid " + (accent ? "var(--accent)" : "var(--line)"),
+      borderRadius: "var(--radius)", padding: pad != null ? pad : "calc(14px * var(--sp))",
+      boxShadow: accent ? "none" : "var(--shadow)",
       cursor: onClick ? "pointer" : "default",
-      transition: "transform .12s ease, background .15s",
+      transition: "transform .12s ease, background .15s, border-color .15s, box-shadow .15s",
       ...style,
     }}>{children}</div>
   );
@@ -49,10 +50,11 @@ export function Ava({ ini, d = 36, ring }) {
   return (
     <div style={{
       width: d, height: d, flex: "0 0 " + d + "px", borderRadius: "50%",
-      background: "var(--surface2)", color: "var(--text)",
+      background: ring ? "var(--accent-soft)" : "var(--surface2)", color: "var(--text)",
       border: ring ? "2px solid var(--accent)" : "1px solid var(--line)",
+      boxShadow: ring ? "0 0 0 4px var(--accent-soft)" : "none",
       display: "flex", alignItems: "center", justifyContent: "center",
-      fontFamily: "var(--font-body)", fontWeight: 700, fontSize: d * 0.34,
+      fontFamily: "var(--font-display)", fontWeight: 700, fontSize: d * 0.36,
     }}>{ini}</div>
   );
 }
@@ -75,12 +77,16 @@ export function Btn({ children, primary, ghost, onClick, full, danger, small, st
     <button onClick={onClick} style={{
       width: full ? "100%" : undefined,
       background: primary ? "var(--accent)" : danger ? "var(--danger)" : ghost ? "transparent" : "var(--surface2)",
-      color: primary || danger ? "#0a0a0a" : "var(--text)",
-      border: ghost ? "1px solid var(--line)" : "none",
-      borderRadius: 13, padding: small ? "8px 14px" : "13px 18px",
-      fontFamily: "var(--font-body)", fontWeight: 700, fontSize: small ? 13 : 15,
+      color: primary ? "#0a0a0a" : danger ? "#fff" : "var(--text)",
+      // ghost reads as a royal-blue "cage" outline, the logo's framing motif
+      border: ghost ? "1.5px solid var(--cage)" : "none",
+      borderRadius: small ? "var(--radius-sm)" : "var(--radius)",
+      padding: small ? "8px 14px" : "13px 18px",
+      fontFamily: "var(--font-display)", fontWeight: 700, fontSize: small ? 13 : 15,
+      letterSpacing: "0.005em",
+      boxShadow: primary ? "0 8px 22px var(--accent-soft), 0 2px 8px var(--accent-soft)" : "none",
       cursor: "pointer", whiteSpace: "nowrap",
-      transition: "filter .12s, transform .08s",
+      transition: "filter .12s, transform .08s, box-shadow .15s",
       ...style,
     }}
     onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.97)"; }}
@@ -92,14 +98,16 @@ export function Btn({ children, primary, ghost, onClick, full, danger, small, st
 
 export function Seg({ options, value, onChange }) {
   return (
-    <div style={{ display: "flex", background: "var(--surface2)", borderRadius: 11, padding: 3, gap: 2 }}>
+    <div style={{ display: "flex", background: "var(--surface2)", borderRadius: 13, padding: 3, gap: 2 }}>
       {options.map((o) => (
         <button key={o} onClick={() => onChange(o)} style={{
-          flex: 1, border: "none", borderRadius: 9, padding: "7px 4px",
-          background: value === o ? "var(--surface)" : "transparent",
-          color: value === o ? "var(--text)" : "var(--text2)",
-          fontFamily: "var(--font-body)", fontSize: 12.5, fontWeight: 600, cursor: "pointer",
-          boxShadow: value === o ? "0 1px 4px rgba(0,0,0,0.25)" : "none",
+          flex: 1, border: "none", borderRadius: 11, padding: "7px 4px",
+          background: value === o ? "var(--accent)" : "transparent",
+          color: value === o ? "#0a0a0a" : "var(--text2)",
+          fontFamily: "var(--font-display)", fontSize: 12.5, fontWeight: 700, cursor: "pointer",
+          textTransform: "capitalize",
+          boxShadow: value === o ? "0 2px 8px var(--accent-soft)" : "none",
+          transition: "background .15s, color .15s",
         }}>{o}</button>
       ))}
     </div>
@@ -117,7 +125,10 @@ export function Col({ children, gap = 10, style }) {
 export function SecHead({ children, right, onRight }) {
   return (
     <Row style={{ justifyContent: "space-between", marginTop: 4 }}>
-      <Disp size={15}>{children}</Disp>
+      <Row gap={8}>
+        <span style={{ width: 4, height: 16, borderRadius: 3, background: "var(--accent)", flex: "0 0 auto" }} />
+        <Disp size={15}>{children}</Disp>
+      </Row>
       {right && (
         <Body size={12.5} bold color="var(--accent-text)" style={{ cursor: onRight ? "pointer" : "default" }}>
           <span onClick={onRight} style={{ cursor: onRight ? "pointer" : "default" }}>{right}</span>
@@ -168,12 +179,14 @@ export function Sheet({ open, onClose, children, title }) {
       animation: "tpFade .18s ease",
     }}>
       <div onClick={(e) => e.stopPropagation()} style={{
-        background: "var(--bg)", borderRadius: "22px 22px 0 0",
+        background: "var(--bg)", borderRadius: "24px 24px 0 0",
+        borderTop: "1.5px solid var(--cage)",
         padding: "10px 18px calc(26px + env(safe-area-inset-bottom))",
         animation: "tpUp .25s cubic-bezier(.2,.9,.3,1)",
+        boxShadow: "0 -18px 50px rgba(5,8,22,0.5)",
         maxHeight: "85%", overflowY: "auto",
       }}>
-        <div style={{ width: 38, height: 4.5, borderRadius: 3, background: "var(--line)", margin: "0 auto 12px" }} />
+        <div style={{ width: 42, height: 5, borderRadius: 3, background: "var(--accent)", opacity: 0.85, margin: "0 auto 12px" }} />
         {title && <Disp size={19} style={{ marginBottom: 12 }}>{title}</Disp>}
         {children}
       </div>
@@ -186,10 +199,10 @@ export function Toast({ msg }) {
   return (
     <div style={{
       position: "absolute", top: "calc(14px + env(safe-area-inset-top))", left: "50%", transform: "translateX(-50%)",
-      zIndex: 80, background: "var(--surface)", border: "1px solid var(--line)",
+      zIndex: 80, background: "var(--surface)", border: "1.5px solid var(--cage)",
       color: "var(--text)", borderRadius: 999, padding: "9px 18px",
       fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600,
-      boxShadow: "0 8px 30px rgba(0,0,0,0.45)", whiteSpace: "nowrap",
+      boxShadow: "var(--shadow-brand)", whiteSpace: "nowrap",
       animation: "tpUp .25s ease",
     }}>{msg}</div>
   );
@@ -206,26 +219,37 @@ export function TabBar({ tab, setTab, onFab }) {
   ];
   return (
     <div style={{
-      position: "relative", borderTop: "1px solid var(--line)", background: "var(--bg)",
+      position: "relative", borderTop: "1.5px solid var(--cage)", background: "var(--bg-solid)",
       display: "flex", justifyContent: "space-around",
       padding: "8px 4px calc(6px + env(safe-area-inset-bottom))",
     }}>
-      {items.map(([id, label, d]) => (
-        <button key={id} onClick={() => setTab(id)} style={{
-          background: "none", border: "none", cursor: "pointer", padding: "2px 8px",
-          display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-          color: tab === id ? "var(--accent-text)" : "var(--text2)",
-        }}>
-          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-            <path d={d} />
-          </svg>
-          <span style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 600 }}>{label}</span>
-        </button>
-      ))}
+      {items.map(([id, label, d]) => {
+        const active = tab === id;
+        return (
+          <button key={id} onClick={() => setTab(id)} style={{
+            background: "none", border: "none", cursor: "pointer", padding: "2px 8px",
+            position: "relative",
+            display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+            color: active ? "var(--accent-text)" : "var(--text2)",
+            transition: "color .15s",
+          }}>
+            {/* lime court-line indicator over the active tab */}
+            <span style={{
+              position: "absolute", top: -9, width: 18, height: 3, borderRadius: 3,
+              background: "var(--accent)", opacity: active ? 1 : 0, transition: "opacity .18s",
+            }} />
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.3 : 1.9} strokeLinecap="round" strokeLinejoin="round">
+              <path d={d} />
+            </svg>
+            <span style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: active ? 700 : 600 }}>{label}</span>
+          </button>
+        );
+      })}
       <button onClick={onFab} title="Create match" style={{
-        position: "absolute", right: 14, top: -26, width: 52, height: 52, borderRadius: "50%",
-        background: "var(--accent)", border: "none", cursor: "pointer",
-        boxShadow: "0 6px 20px rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center",
+        position: "absolute", right: 14, top: -26, width: 54, height: 54, borderRadius: "50%",
+        background: "var(--accent)", border: "3px solid var(--bg-solid)", cursor: "pointer",
+        boxShadow: "0 8px 22px var(--accent-soft), 0 4px 14px rgba(5,8,22,0.5)",
+        display: "flex", alignItems: "center", justifyContent: "center",
       }}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" strokeWidth="2.6" strokeLinecap="round">
           <path d="M12 5v14M5 12h14" />

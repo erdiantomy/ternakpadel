@@ -1,10 +1,24 @@
 html, body { margin: 0; padding: 0; }
 html, body, #root { height: 100%; }
-* { -webkit-font-smoothing: antialiased; }
+body { background: #0A0F26; font-family: 'Inter', sans-serif; }
+* { -webkit-font-smoothing: antialiased; box-sizing: border-box; }
 ::-webkit-scrollbar { width: 0; height: 0; }
 button { -webkit-tap-highlight-color: transparent; }
+
+/* lime selection — the brand's energy color */
+::selection { background: #C4F22E; color: #0A0F26; }
 
 @keyframes tpFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes tpUp { from { transform: translateY(26px); opacity: 0.4; } to { transform: translateY(0); opacity: 1; } }
 @keyframes tpPop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @keyframes tpPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+/* a soft tennis-lime breathing glow for primary calls-to-action */
+@keyframes tpGlow {
+  0%, 100% { box-shadow: 0 8px 22px rgba(196,242,46,0.28); }
+  50% { box-shadow: 0 10px 30px rgba(196,242,46,0.45); }
+}
+/* a gentle bounce, echoing the tennis balls in the wordmark */
+@keyframes tpBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}

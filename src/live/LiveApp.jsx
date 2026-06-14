@@ -34,7 +34,7 @@ function timeAgo(iso) {
   return Math.round(s / 86400) + "d";
 }
 
-const SETTINGS_DEFAULTS = { theme: "dark", accent: "#C4F22E", font: "inter", density: "comfy", homeLayout: "matchday" };
+const SETTINGS_DEFAULTS = { theme: "dark", accent: "#C4F22E", font: "brand", density: "comfy", homeLayout: "matchday" };
 const LS_KEY = "tp_live_settings";
 
 // americano pairing: rank by event standings, groups of 4 → (1&4) vs (2&3)

@@ -9,7 +9,7 @@ import { CourtBadge } from "../components/BrandMark.jsx";
 // run the core operations: create/manage events, set status, post content,
 // and grant host/admin.
 
-const THEME = { theme: "dark", accent: "#C4F22E", font: "inter", density: "comfy" };
+const THEME = { theme: "dark", accent: "#C4F22E", font: "brand", density: "comfy" };
 const idr = (n) => "Rp" + (n || 0).toLocaleString("id-ID");
 const initials = (name) =>
   (name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || "").join("") || "?";
