@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="theme-color" content="#050505" />
+<meta name="theme-color" content="#0A0F26" />
 <title>Ternak Padel</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
@@ -11,6 +11,13 @@
 </head>
 <body>
 <div id="root"></div>
+<script>
+// Restore a deep path saved by 404.html, before the app bundle reads the URL.
+(function () {
+  var r = sessionStorage.getItem("spa_redirect");
+  if (r) { sessionStorage.removeItem("spa_redirect"); history.replaceState(null, "", r); }
+})();
+</script>
 <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>

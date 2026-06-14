@@ -25,6 +25,8 @@ Deno.serve(async (req) => {
     return Response.json({ error: "invalid signature" }, { status: 401 });
   }
 
+  // Fonnte wants the bare number, e.g. 6281218153309 — not the "+" E.164 form.
+  const target = data.user.phone.replace(/^\+/, "");
   const res = await fetch("https://api.fonnte.com/send", {
     method: "POST",
     headers: {
@@ -32,18 +34,19 @@ Deno.serve(async (req) => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      target: data.user.phone,
+      target,
       message:
         `🎾 *Ternak Padel*\n\nKode masuk kamu: *${data.sms.otp}*\n\n` +
         `Berlaku 5 menit. Jangan bagikan kode ini ke siapa pun.`,
     }),
   });
 
-  if (!res.ok) {
-    const err = await res.text();
-    console.error("fonnte error:", err);
+  // Fonnte returns HTTP 200 even on logical failure; the truth is body.status.
+  const body = await res.json().catch(() => ({} as Record<string, unknown>));
+  if (!res.ok || body.status === false) {
+    console.error("fonnte error:", JSON.stringify(body));
     return Response.json(
-      { error: { http_code: res.status, message: "WhatsApp delivery failed" } },
+      { error: { http_code: 500, message: "WhatsApp delivery failed: " + (body.reason ?? JSON.stringify(body)) } },
       { status: 500 },
     );
   }

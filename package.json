@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "guide:pdf": "npx md-to-pdf --launch-options '{\"args\":[\"--no-sandbox\",\"--disable-setuid-sandbox\"]}' GUIDE.md && mv GUIDE.pdf public/GUIDE.pdf",
+    "guide:pdf:local": "npx md-to-pdf GUIDE.md && mv GUIDE.pdf public/GUIDE.pdf"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.1",

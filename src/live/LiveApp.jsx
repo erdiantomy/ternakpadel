@@ -8,6 +8,7 @@ import { MatchesScreen, ScorerOverlay, RankingsScreen } from "../screens/LiveRan
 import { ProfileScreen, ShareOverlay, CreateSheet } from "../screens/Profile.jsx";
 import { HostConsole } from "../screens/Host.jsx";
 import { LiveOnboarding } from "./LiveOnboarding.jsx";
+import { CourtBadge } from "../components/BrandMark.jsx";
 
 // ---------- helpers ----------
 
@@ -33,7 +34,7 @@ function timeAgo(iso) {
   return Math.round(s / 86400) + "d";
 }
 
-const SETTINGS_DEFAULTS = { theme: "dark", accent: "#FF6B00", font: "inter", density: "comfy", homeLayout: "matchday" };
+const SETTINGS_DEFAULTS = { theme: "dark", accent: "#C4F22E", font: "inter", density: "comfy", homeLayout: "matchday" };
 const LS_KEY = "tp_live_settings";
 
 // americano pairing: rank by event standings, groups of 4 → (1&4) vs (2&3)
@@ -60,7 +61,11 @@ function nextPairings(standings, profilesById) {
 
 export default function LiveApp() {
   const [t, setT_] = React.useState(() => {
-    try { return { ...SETTINGS_DEFAULTS, ...JSON.parse(localStorage.getItem(LS_KEY) || "{}") }; }
+    try {
+      const saved = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
+      if (saved.accent === "#FF6B00") delete saved.accent; // migrate off the old default accent
+      return { ...SETTINGS_DEFAULTS, ...saved };
+    }
     catch { return SETTINGS_DEFAULTS; }
   });
   const setT = (k, v) => setT_((prev) => {
@@ -442,7 +447,7 @@ export default function LiveApp() {
 
   if (session === undefined) {
     return <div style={{ ...theme, height: "100dvh", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ fontSize: 34, animation: "tpPulse 1.2s infinite" }}>🎾</div>
+      <div style={{ animation: "tpPulse 1.2s infinite" }}><CourtBadge size={56} /></div>
     </div>;
   }
 
@@ -460,7 +465,7 @@ export default function LiveApp() {
   const ev = S.events.find((e) => e.id === eventOpen);
 
   return (
-    <div style={{ minHeight: "100dvh", background: dark ? "#0c0c0d" : "#e8e6e1", display: "flex", justifyContent: "center", transition: "background .3s" }}>
+    <div style={{ minHeight: "100dvh", background: dark ? "#070B1C" : "#E5EAF7", display: "flex", justifyContent: "center", transition: "background .3s" }}>
       <div style={{
         ...theme, background: "var(--bg)", width: "100%", maxWidth: 480, height: "100dvh",
         display: "flex", flexDirection: "column", position: "relative", overflow: "hidden",
