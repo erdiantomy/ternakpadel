@@ -190,13 +190,19 @@ export default function LiveApp() {
     const ranks = db.rankHistory.map((r) => r.rank);
     const rankDelta = ranks.length >= 2 ? Math.max(0, ranks[ranks.length - 2] - ranks[ranks.length - 1]) : 0;
 
-    const paidByEvent = {};
+    const paidByEvent = {};     // status==='paid' → participants
+    const requestsByEvent = {}; // status==='requested' → awaiting host/admin
+    const myEpByEvent = {};     // the current user's row per event
     for (const ep of db.eventPlayers) {
-      if (!ep.paid) continue;
-      (paidByEvent[ep.event_id] = paidByEvent[ep.event_id] || []).push(ep);
+      const isPaid = ep.paid || ep.status === "paid";
+      if (isPaid) (paidByEvent[ep.event_id] = paidByEvent[ep.event_id] || []).push(ep);
+      else if (ep.status === "requested") (requestsByEvent[ep.event_id] = requestsByEvent[ep.event_id] || []).push(ep);
+      if (ep.player_id === uid) myEpByEvent[ep.event_id] = ep;
     }
     const joined = {};
-    for (const ep of db.eventPlayers) if (ep.player_id === uid && ep.paid) joined[ep.event_id] = true;
+    for (const id in myEpByEvent) if (myEpByEvent[id].paid || myEpByEvent[id].status === "paid") joined[id] = true;
+    const personOf = (id) => ({ id, name: profilesById[id]?.full_name || "Player", initials: initialsOf(profilesById[id]?.full_name), me: id === uid });
+    const canManageEvent = (e) => !!uid && (e.created_by === uid || db.profile?.is_host || db.profile?.is_admin);
 
     const events = db.events
       .filter((e) => e.status !== "done")
@@ -210,6 +216,11 @@ export default function LiveApp() {
           live: e.status === "live", createdBy: e.created_by,
           roster: roster.filter((p) => p.id !== uid).map((p) => firstName(p.full_name)),
           avatars: roster.map((p) => initialsOf(p.full_name)),
+          // join-approval flow
+          myStatus: myEpByEvent[e.id]?.status || (joined[e.id] ? "paid" : "none"),
+          participants: (paidByEvent[e.id] || []).map((ep) => personOf(ep.player_id)),
+          requests: (requestsByEvent[e.id] || []).map((ep) => personOf(ep.player_id)),
+          canManage: canManageEvent(e),
           ...dd,
           today: dd.today || e.status === "live",
         };
@@ -333,6 +344,31 @@ export default function LiveApp() {
     openSettings: () => setSettingsOpen(true),
     closeSettings: () => setSettingsOpen(false),
     replayOnboarding: async () => { setSettingsOpen(false); await supabase.auth.signOut(); setOnboardingDone(false); },
+
+    // player asks to join → goes into the host's request queue
+    requestJoin: async (eventId) => {
+      if (!uid) return;
+      const { error } = await supabase.from("event_players")
+        .insert({ event_id: eventId, player_id: uid, status: "requested", paid: false });
+      if (error) return toast(error.message);
+      toast("Request sent — the host will review it ✋");
+      refresh();
+    },
+    // host / admin decisions on a pending request
+    approveJoin: async (eventId, playerId) => {
+      const { error } = await supabase.from("event_players")
+        .update({ status: "approved" }).eq("event_id", eventId).eq("player_id", playerId);
+      if (error) return toast(error.message);
+      toast("Approved — they can pay now ✓");
+      refresh();
+    },
+    rejectJoin: async (eventId, playerId) => {
+      const { error } = await supabase.from("event_players")
+        .update({ status: "rejected" }).eq("event_id", eventId).eq("player_id", playerId);
+      if (error) return toast(error.message);
+      toast("Request declined");
+      refresh();
+    },
 
     openPay: async (eventId) => {
       setPayBusy(true);

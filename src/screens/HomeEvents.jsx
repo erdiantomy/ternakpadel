@@ -194,6 +194,7 @@ const ROSTER_NAMES = { rina: "Rina", eko: "Eko", maya: "Maya", dimas: "Dimas", f
 
 export function EventDetail({ S, A, ev }) {
   const joined = S.joined[ev.id];
+  const status = ev.myStatus || (joined ? "paid" : "none"); // none|requested|approved|paid|rejected
   return (
     <Col gap={12} style={{ padding: "0 0 90px" }}>
       <div style={{
@@ -221,11 +222,37 @@ export function EventDetail({ S, A, ev }) {
           </Card>
         </Row>
         <Body size={13.5} dim>{ev.desc}</Body>
-        <SecHead right={(ev.joined + (joined ? 1 : 0)) + "/" + ev.max}>Players</SecHead>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-          {joined && <Pill small on>{S.me?.initials || "TS"} You</Pill>}
-          {ev.roster.map((r) => <Pill key={r} small>{ROSTER_NAMES[r] || r}</Pill>)}
+        <SecHead right={(ev.participants?.length ?? ev.joined) + "/" + ev.max}>Players</SecHead>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 9 }}>
+          {(ev.participants || []).map((p) => (
+            <Row key={p.id} gap={7} style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 999, padding: "4px 12px 4px 4px" }}>
+              <Ava ini={p.initials} d={26} />
+              <Body size={12.5} bold>{p.name.split(" ")[0]}{p.me ? " (You)" : ""}</Body>
+            </Row>
+          ))}
+          {(!ev.participants || ev.participants.length === 0) && <Body size={12.5} dim>No participants yet — be the first in.</Body>}
         </div>
+
+        {ev.canManage && (ev.requests?.length > 0) && (
+          <Col gap={8}>
+            <SecHead right={ev.requests.length + " pending"}>Join requests</SecHead>
+            {ev.requests.map((r) => (
+              <Card key={r.id} pad={10}>
+                <Row style={{ justifyContent: "space-between" }} gap={8}>
+                  <Row gap={9} style={{ minWidth: 0 }}>
+                    <Ava ini={r.initials} d={30} />
+                    <Body size={13.5} bold style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</Body>
+                  </Row>
+                  <Row gap={7}>
+                    <Btn small ghost onClick={() => A.rejectJoin(ev.id, r.id)}>Decline</Btn>
+                    <Btn small primary onClick={() => A.approveJoin(ev.id, r.id)}>Approve</Btn>
+                  </Row>
+                </Row>
+              </Card>
+            ))}
+          </Col>
+        )}
+
         {ev.live && (
           <Card accent onClick={() => A.setTab("matches")}>
             <Row style={{ justifyContent: "space-between" }}>
@@ -237,9 +264,13 @@ export function EventDetail({ S, A, ev }) {
             </Row>
           </Card>
         )}
-        {!joined && !ev.full && <Btn primary full onClick={() => A.openPay(ev.id)}>Join — {rupiah(ev.fee)}</Btn>}
-        {!joined && ev.full && <Btn full ghost onClick={() => A.toast("Added to waitlist — we'll WhatsApp you")}>Event full — join waitlist</Btn>}
-        {joined && <Btn full ghost onClick={() => A.toast("See you on court! 🎾")}>✓ You're in — view schedule</Btn>}
+
+        {status === "none" && !ev.full && <Btn primary full onClick={() => A.requestJoin(ev.id)}>Request to join</Btn>}
+        {status === "none" && ev.full && <Btn full ghost onClick={() => A.toast("Event full — we'll WhatsApp you if a spot opens")}>Event full</Btn>}
+        {status === "requested" && <Btn full ghost onClick={() => A.toast("Waiting for the host to approve your request")}>⏳ Waiting for host approval</Btn>}
+        {status === "approved" && <Btn primary full onClick={() => A.openPay(ev.id)}>Approved — Pay {rupiah(ev.fee)}</Btn>}
+        {status === "paid" && <Btn full ghost onClick={() => A.toast("See you on court! 🎾")}>✓ You're in — view schedule</Btn>}
+        {status === "rejected" && <Btn full ghost onClick={() => A.toast("Your request wasn't approved this time")}>Request not approved</Btn>}
       </Col>
     </Col>
   );

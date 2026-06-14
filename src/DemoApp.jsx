@@ -49,6 +49,17 @@ export default function DemoApp() {
   const [onboarded, setOnboarded] = React.useState(!!saved.onboarded);
 
   const [joined, setJoined] = React.useState(saved.joined || {});
+  // join-approval flow (demo): eventId → none|requested|approved|paid
+  const [joinStatus, setJoinStatus] = React.useState(() => {
+    const m = {}; Object.keys(saved.joined || {}).forEach((id) => { m[id] = "paid"; }); return m;
+  });
+  // a couple of seeded pending requests so the host approve panel is visible
+  const [pending, setPending] = React.useState({
+    "fri-americano": [
+      { id: "rq1", name: "Galih Pratama", initials: "GP" },
+      { id: "rq2", name: "Wulan Sari", initials: "WS" },
+    ],
+  });
   const [checkedIn, setCheckedIn] = React.useState(false);
   const [feed, setFeed] = React.useState(() => TP_DATA.feed.map((p) => ({ ...p, liked: (saved.liked || []).includes(p.id) })));
   const [events, setEvents] = React.useState(() => TP_DATA.events.map((e) => ({ ...e, live: e.id === "fri-americano" })));
@@ -103,10 +114,27 @@ export default function DemoApp() {
     back: () => setEventOpen(null),
     openPay: (id) => setPaying(id),
     closePay: () => setPaying(null),
+    requestJoin: (id) => {
+      setJoinStatus((s) => ({ ...s, [id]: "requested" }));
+      toast("Request sent — the host will review it ✋");
+      // demo: the host approves shortly after
+      setTimeout(() => {
+        setJoinStatus((s) => (s[id] === "requested" ? { ...s, [id]: "approved" } : s));
+        toast("Host approved — you can pay now ✓");
+      }, 1700);
+    },
+    approveJoin: (eventId, playerId) => {
+      setPending((p) => ({ ...p, [eventId]: (p[eventId] || []).filter((r) => r.id !== playerId) }));
+      toast("Approved — they can pay now ✓");
+    },
+    rejectJoin: (eventId, playerId) => {
+      setPending((p) => ({ ...p, [eventId]: (p[eventId] || []).filter((r) => r.id !== playerId) }));
+      toast("Request declined");
+    },
     confirmJoin: (id) => {
       const j = { ...joined, [id]: true };
-      setJoined(j); setPaying(null); tpSave({ joined: j });
-      toast("Joined ✓ — pairings drop 1h before start");
+      setJoined(j); setJoinStatus((s) => ({ ...s, [id]: "paid" })); setPaying(null); tpSave({ joined: j });
+      toast("You're in 🎾 — pairings drop 1h before start");
     },
     checkIn: () => { setCheckedIn(true); toast("Checked in — Court 2, Round 3 🎾"); },
     like: (id) => {
@@ -201,9 +229,17 @@ export default function DemoApp() {
     toast,
   };
 
-  const S = { ...stats, me: TP_DATA.me, winRate, joined, checkedIn, feed, events, timeline, live, standings, scorer, share, paying, creating, matchResult, players, rankHistory: TP_DATA.rankHistory.slice(0, 11).concat([stats.rank]), badgesGot: 3 + (stats.streak >= 10 ? 1 : 0) };
+  const cap = (s) => (s ? String(s)[0].toUpperCase() + String(s).slice(1) : s);
+  const eventsView = events.map((e) => {
+    const st = joinStatus[e.id] || (joined[e.id] ? "paid" : "none");
+    const parts = (e.roster || []).map((k) => ({ id: k, name: cap(k), initials: String(k).slice(0, 2).toUpperCase() }));
+    if (joined[e.id]) parts.unshift({ id: "me", name: TP_DATA.me?.name || "You", initials: TP_DATA.me?.initials || "TS", me: true });
+    return { ...e, myStatus: st, participants: parts, requests: pending[e.id] || [], canManage: true };
+  });
 
-  const ev = events.find((e) => e.id === eventOpen);
+  const S = { ...stats, me: TP_DATA.me, winRate, joined, checkedIn, feed, events: eventsView, timeline, live, standings, scorer, share, paying, creating, matchResult, players, rankHistory: TP_DATA.rankHistory.slice(0, 11).concat([stats.rank]), badgesGot: 3 + (stats.streak >= 10 ? 1 : 0) };
+
+  const ev = eventsView.find((e) => e.id === eventOpen);
   const dark = t.theme === "dark";
   const theme = tpTheme(t);
 

@@ -28,6 +28,15 @@ Deno.serve(async (req) => {
     if (evErr || !ev) return Response.json({ error: "event not found" }, { status: 404, headers: cors });
     if (ev.status !== "open") return Response.json({ error: "registration closed" }, { status: 409, headers: cors });
 
+    // Gate: only an APPROVED join-request may pay. The host/admin approves first.
+    const { data: me } = await supabase.from("event_players")
+      .select("status").eq("event_id", event_id).eq("player_id", user.id).maybeSingle();
+    if (!me) return Response.json({ error: "request to join first" }, { status: 403, headers: cors });
+    if (me.status === "paid") return Response.json({ error: "you're already in" }, { status: 409, headers: cors });
+    if (me.status !== "approved") {
+      return Response.json({ error: "your request hasn't been approved yet" }, { status: 403, headers: cors });
+    }
+
     const { count } = await supabase.from("event_players")
       .select("*", { count: "exact", head: true }).eq("event_id", event_id).eq("paid", true);
     if ((count ?? 0) >= ev.max_players) {
