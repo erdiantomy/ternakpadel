@@ -1,6 +1,7 @@
 import React from "react";
 import { supabase } from "../lib/supabase.js";
 import { tpTheme } from "../theme.js";
+import { CourtBadge } from "../components/BrandMark.jsx";
 
 // Superadmin operations console — reachable at /admin.
 // Gated on profiles.is_admin (see supabase/migrations/0002_admin.sql).
@@ -8,7 +9,7 @@ import { tpTheme } from "../theme.js";
 // run the core operations: create/manage events, set status, post content,
 // and grant host/admin.
 
-const THEME = { theme: "dark", accent: "#FF6B00", font: "inter", density: "comfy" };
+const THEME = { theme: "dark", accent: "#C4F22E", font: "inter", density: "comfy" };
 const idr = (n) => "Rp" + (n || 0).toLocaleString("id-ID");
 const initials = (name) =>
   (name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || "").join("") || "?";
@@ -124,7 +125,7 @@ export default function AdminConsole() {
   );
 
   if (session === undefined || (session && me === undefined)) {
-    return wrap(<div style={{ display: "flex", height: "100dvh", alignItems: "center", justifyContent: "center", fontSize: 30 }}>🎾</div>);
+    return wrap(<div style={{ display: "flex", height: "100dvh", alignItems: "center", justifyContent: "center" }}><div style={{ animation: "tpPulse 1.2s infinite" }}><CourtBadge size={52} /></div></div>);
   }
   if (!session) {
     return wrap(
@@ -167,7 +168,7 @@ export default function AdminConsole() {
       {/* sidebar */}
       <aside style={{ width: 210, flexShrink: 0, borderRight: "1px solid var(--line)", padding: 16, display: "flex", flexDirection: "column", gap: 4, position: "sticky", top: 0, height: "100dvh", boxSizing: "border-box" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 9, background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center" }}>🎾</div>
+          <CourtBadge size={30} radius={9} />
           <b style={{ fontFamily: "var(--font-display)" }}>Admin</b>
         </div>
         {TABS.map(([k, label, ic]) => (

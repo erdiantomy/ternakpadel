@@ -1,5 +1,6 @@
 import React from "react";
 import { Disp, Body, Num, Card, Ava, Pill, Btn, Row, Col, SecHead } from "../components/atoms.jsx";
+import { CourtBadge } from "../components/BrandMark.jsx";
 
 // Host console — landscape tablet view for community hosts leading matches.
 // Shares live/standings state with the player app.
@@ -48,7 +49,7 @@ export function HostConsole({ S, A }) {
       {/* left rail — event context */}
       <div style={{ width: 252, flex: "0 0 252px", borderRight: "1px solid var(--line)", display: "flex", flexDirection: "column", gap: 14, padding: "calc(18px + env(safe-area-inset-top)) 16px calc(18px + env(safe-area-inset-bottom))", boxSizing: "border-box", overflowY: "auto" }}>
         <Row gap={10}>
-          <div style={{ width: 38, height: 38, borderRadius: 11, background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19 }}>🎾</div>
+          <CourtBadge size={38} radius={11} />
           <Col gap={1}>
             <Body size={11} dim bold style={{ letterSpacing: "0.08em" }}>HOST CONSOLE</Body>
             <Disp size={15}>Ternak Padel</Disp>

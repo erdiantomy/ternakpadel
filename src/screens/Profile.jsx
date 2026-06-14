@@ -1,6 +1,7 @@
 import React from "react";
 import { TP_DATA } from "../data.js";
 import { Disp, Body, Num, Card, Ava, Pill, Btn, Row, Col, SecHead, Spark, Sheet } from "../components/atoms.jsx";
+import { CourtBadge } from "../components/BrandMark.jsx";
 
 // Profile / career screen, share-card overlay, create-match sheet, onboarding.
 
@@ -216,7 +217,7 @@ export function Onboarding({ A }) {
     <div style={{ position: "absolute", inset: 0, zIndex: 100, background: "var(--bg)", display: "flex", flexDirection: "column", padding: "calc(18px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom))" }}>
       {step === 0 && (
         <Col gap={12} style={{ flex: 1, justifyContent: "center" }}>
-          <div style={{ width: 46, height: 46, borderRadius: 13, background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🎾</div>
+          <CourtBadge size={46} />
           <Disp size={28}>Ternak Padel</Disp>
           <Body size={14} dim style={{ marginTop: -6 }}>Your padel career starts here. No passwords — ever.</Body>
           {field("Full name", "Tomy Santoso")}

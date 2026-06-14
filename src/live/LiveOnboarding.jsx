@@ -1,6 +1,7 @@
 import React from "react";
 import { supabase } from "../lib/supabase.js";
 import { Disp, Body, Card, Ava, Pill, Btn, Row, Col } from "../components/atoms.jsx";
+import { BrandLogo } from "../components/BrandMark.jsx";
 
 // Onboarding: Google sign-in (Supabase OAuth), then profile setup questions.
 // After Google redirects back, a session exists and we resume at the questions;
@@ -65,10 +66,9 @@ export function LiveOnboarding({ session, profile, onDone, toast }) {
   return (
     <div style={{ position: "absolute", inset: 0, zIndex: 100, background: "var(--bg)", display: "flex", flexDirection: "column", padding: "calc(18px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom))" }}>
       {step === 0 && (
-        <Col gap={14} style={{ flex: 1, justifyContent: "center" }}>
-          <div style={{ width: 46, height: 46, borderRadius: 13, background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🎾</div>
-          <Disp size={28}>Ternak Padel</Disp>
-          <Body size={14} dim style={{ marginTop: -6 }}>Your padel career starts here. One tap to join — no passwords.</Body>
+        <Col gap={16} style={{ flex: 1, justifyContent: "center", alignItems: "center", textAlign: "center" }}>
+          <BrandLogo width={284} dark />
+          <Body size={14} dim style={{ marginTop: 2 }}>Your padel career starts here. One tap to join — no passwords.</Body>
           <Btn primary full onClick={signInWithGoogle}>{busy ? "Opening Google…" : "Continue with Google"}</Btn>
           <Body size={12} dim style={{ textAlign: "center" }}>We use your Google name and email to set up your profile.</Body>
         </Col>
