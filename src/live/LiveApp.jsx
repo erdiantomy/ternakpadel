@@ -345,9 +345,13 @@ export default function LiveApp() {
     closeSettings: () => setSettingsOpen(false),
     replayOnboarding: async () => { setSettingsOpen(false); await supabase.auth.signOut(); setOnboardingDone(false); },
 
-    // player asks to join → goes into the host's request queue
+    // player asks to join → goes into the host's request queue. If they were
+    // previously declined, clear that stale row first so the (event,player) PK
+    // insert can succeed (RLS lets a player delete their own 'rejected' row).
     requestJoin: async (eventId) => {
       if (!uid) return;
+      await supabase.from("event_players")
+        .delete().eq("event_id", eventId).eq("player_id", uid).eq("status", "rejected");
       const { error } = await supabase.from("event_players")
         .insert({ event_id: eventId, player_id: uid, status: "requested", paid: false });
       if (error) return toast(error.message);
@@ -398,21 +402,19 @@ export default function LiveApp() {
     },
 
     setScorer,
+    // atomic, clamped increment server-side so two phones on one court can't
+    // clobber each other's taps; reconcile from the authoritative result.
     score: async (side, d) => {
       const c = S.live?.courts.find((x) => x.yours);
       if (!c) return;
-      const col = side === "A" ? "score_a" : "score_b";
-      const val = Math.max(0, (side === "A" ? c.a : c.b) + d);
-      setDb((prev) => ({ ...prev, matches: prev.matches.map((m) => m.id === c.id ? { ...m, [col]: val } : m) }));
-      await supabase.from("matches").update({ [col]: val }).eq("id", c.id);
+      await A.scoreCourt(c.id, side, d);
     },
     scoreCourt: async (matchId, side, d) => {
-      const m = db.matches.find((x) => x.id === matchId);
-      if (!m) return;
       const col = side === "A" ? "score_a" : "score_b";
-      const val = Math.max(0, m[col] + d);
-      setDb((prev) => ({ ...prev, matches: prev.matches.map((x) => x.id === matchId ? { ...x, [col]: val } : x) }));
-      await supabase.from("matches").update({ [col]: val }).eq("id", matchId);
+      setDb((prev) => ({ ...prev, matches: prev.matches.map((x) => x.id === matchId ? { ...x, [col]: Math.max(0, (x[col] || 0) + d) } : x) }));
+      const { data, error } = await supabase.rpc("score_match", { p_match_id: matchId, p_side: side, p_delta: d });
+      if (error) { toast(error.message); return refresh(); }
+      setDb((prev) => ({ ...prev, matches: prev.matches.map((x) => x.id === matchId ? { ...x, score_a: data.score_a, score_b: data.score_b } : x) }));
     },
 
     endMatch: async () => {
@@ -432,19 +434,19 @@ export default function LiveApp() {
     },
     closeScorer: () => { setScorer(false); setMatchResult(null); },
 
+    // start an open event: flips it live and seeds Round 1 from the paid roster
+    startEvent: async (eventId) => {
+      const { data, error } = await supabase.rpc("start_event", { p_event_id: eventId });
+      if (error) return toast(error.message);
+      toast(`Event live — ${data.courts} court${data.courts === 1 ? "" : "s"}, round 1 underway 🎾`);
+      refresh();
+    },
+    // score & close every court in the round (awards points), then seed the next
     endRound: async () => {
       const live = S.live;
       if (!live) return;
-      const pairing = live._pairing;
-      await supabase.from("matches").update({ status: "done", finished_at: new Date().toISOString() })
-        .eq("event_id", live.eventId).eq("round", live.round).eq("status", "live");
-      if (pairing && pairing.courts.length) {
-        await supabase.from("matches").insert(pairing.courts.map((c, i) => ({
-          event_id: live.eventId, round: live.round + 1, court: i + 1,
-          team_a: c.team_a, team_b: c.team_b,
-          team_a_names: c.team_a_names, team_b_names: c.team_b_names,
-        })));
-      }
+      const { error } = await supabase.rpc("end_round", { p_event_id: live.eventId, p_round: live.round });
+      if (error) return toast(error.message);
       toast("Round complete — new pairings sent to every phone 📣");
       refresh();
     },

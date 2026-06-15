@@ -265,12 +265,19 @@ export function EventDetail({ S, A, ev }) {
           </Card>
         )}
 
+        {/* host / admin: bring an open event live once enough players have paid */}
+        {ev.canManage && !ev.live && (
+          (ev.participants?.length ?? 0) >= 4
+            ? <Btn primary full onClick={() => A.startEvent(ev.id)}>Start event — go live 🎾</Btn>
+            : <Btn full ghost onClick={() => A.toast("Need at least 4 paid players to start")}>Start event (need 4+ paid)</Btn>
+        )}
+
         {status === "none" && !ev.full && <Btn primary full onClick={() => A.requestJoin(ev.id)}>Request to join</Btn>}
         {status === "none" && ev.full && <Btn full ghost onClick={() => A.toast("Event full — we'll WhatsApp you if a spot opens")}>Event full</Btn>}
         {status === "requested" && <Btn full ghost onClick={() => A.toast("Waiting for the host to approve your request")}>⏳ Waiting for host approval</Btn>}
         {status === "approved" && <Btn primary full onClick={() => A.openPay(ev.id)}>Approved — Pay {rupiah(ev.fee)}</Btn>}
         {status === "paid" && <Btn full ghost onClick={() => A.toast("See you on court! 🎾")}>✓ You're in — view schedule</Btn>}
-        {status === "rejected" && <Btn full ghost onClick={() => A.toast("Your request wasn't approved this time")}>Request not approved</Btn>}
+        {status === "rejected" && <Btn primary full onClick={() => A.requestJoin(ev.id)}>Request again</Btn>}
       </Col>
     </Col>
   );
