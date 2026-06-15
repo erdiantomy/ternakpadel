@@ -48,6 +48,17 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    // reuse a still-open invoice instead of stacking duplicates (and double charges)
+    // when the player taps Pay more than once.
+    const { data: open } = await admin.from("payments")
+      .select("id,invoice_url").eq("event_id", event_id).eq("player_id", user.id)
+      .eq("status", "pending").not("invoice_url", "is", null)
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (open?.invoice_url) {
+      return Response.json({ invoice_url: open.invoice_url, payment_id: open.id }, { headers: cors });
+    }
+
     const { data: pay, error: payErr } = await admin.from("payments")
       .insert({ event_id, player_id: user.id, amount: ev.fee })
       .select().single();

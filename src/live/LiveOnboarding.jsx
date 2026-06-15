@@ -81,18 +81,24 @@ export function LiveOnboarding({ session, profile, onDone, toast }) {
 
   const finishQuestions = async (finalAnswers) => {
     const { data: { user } } = await supabase.auth.getUser();
-    const base = (name.trim().split(/\s+/)[0] || "player").toLowerCase();
-    const username = "@" + base + Math.floor(100 + Math.random() * 900);
-    const { error } = await supabase.from("profiles").update({
+    const base = (name.trim().split(/\s+/)[0] || "player").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const rest = {
       full_name: name.trim() || profile?.full_name || "Player",
-      username: profile?.username || username,
       skill: finalAnswers.skill || "Intermediate",
       side: finalAnswers.side || "Left",
       play_freq: finalAnswers.play_freq || null,
       goal: finalAnswers.goal || null,
-    }).eq("id", user.id);
-    if (error) return toast(error.message);
-    setStep(6);
+    };
+    // username is UNIQUE — retry on a collision instead of dead-ending onboarding
+    let lastError = null;
+    for (let i = 0; i < 5; i++) {
+      const username = profile?.username || "@" + base + Math.floor(100 + Math.random() * 900);
+      const { error } = await supabase.from("profiles").update({ ...rest, username }).eq("id", user.id);
+      if (!error) return setStep(6);
+      lastError = error;
+      if (error.code !== "23505" || profile?.username) break; // not a uniqueness clash
+    }
+    toast(lastError?.message || "Couldn't finish setup — try again");
   };
 
   return (
