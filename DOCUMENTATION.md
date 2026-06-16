@@ -127,7 +127,8 @@ manages all operational data in one place — no dashboard digging needed.
 **Tabs:** Overview (members, paid revenue, pending payments, active events, live
 matches, posts) · Members (grant/revoke host & admin) · Payments (every payment,
 filter by status, open the Xendit invoice) · Events (create + change status) ·
-Matches (live scores) · Content (post announcements to the community feed).
+Matches (live scores) · Content (post announcements to the community feed) ·
+Demo (run a full event by hand — see §6.7).
 
 **One-time enable:**
 1. Supabase → SQL editor → run `supabase/migrations/0002_admin.sql` (adds the
@@ -189,6 +190,33 @@ values ('Season 2026/27', '2026-09-01', '2027-08-31', true);
 Push to `main` → GitHub Actions builds and publishes to Pages automatically
 (~1–2 min). Manual run: Actions → Deploy to GitHub Pages → Run workflow. Live
 mode requires the two `VITE_SUPABASE_*` Actions secrets to be set.
+
+### 6.7 Demo Mode (admin manual fulfilment)
+The **Demo** tab in `/admin` lets you run a whole event by hand — useful for
+showcases and onboarding players before they sign in. It is **not** a sandbox:
+scores feed the **real** leaderboard, so a player you create during a demo keeps
+the same id and points when they later sign in for real.
+
+Flow:
+1. **Add temporary player** — name (+ optional login email/phone). Creates a real
+   account so its id is permanent. Leave the email blank for a placeholder.
+2. **Link login email** — set/replace a player's login email any time. When that
+   person signs in with Google or an email magic-link using that address, they
+   continue the same id and keep their points (no merge needed).
+3. **Demo event** — pick an event (create it in the Events tab first).
+4. **Roster** — add players; they're marked **paid** directly, bypassing Xendit.
+5. **Matches** — build a match from the roster, tap +/− to score, **Finish** to
+   award season points / ranks / badges and post to the feed (same `finish_match`
+   the live app uses).
+
+**One-time enable:**
+1. Run `supabase/migrations/0010_demo_mode.sql` (lets an admin finish any match).
+2. Deploy the provisioning function: `supabase functions deploy provision-player`
+   (uses the existing service-role secret; no new keys).
+3. Supabase → Auth → enable **same-email identity linking** ("allow linking
+   identities with the same email") so a later Google sign-in attaches to the
+   email you provisioned instead of erroring.
+4. Optional: set the Actions secret `VITE_DEMO_MODE=false` to hide the Demo tab.
 
 ---
 
