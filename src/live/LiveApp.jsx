@@ -475,9 +475,9 @@ export default function LiveApp() {
     },
 
     enterHost: () => {
-      const isHost = db.profile?.is_host || (S.live && db.events.find((e) => e.id === S.live.eventId)?.created_by === uid);
+      const isHost = db.profile?.is_admin || db.profile?.is_host;
+      if (!isHost) { toast("Host access required — ask an admin"); return; }
       if (!S.live) { toast("No live event to host right now"); return; }
-      if (!isHost) { toast("Only the event host can open the console"); return; }
       setSettingsOpen(false); setMode("host");
     },
     exitHost: () => setMode("player"),
@@ -525,7 +525,7 @@ export default function LiveApp() {
         </div>
         <TabBar tab={tab} setTab={A.setTab} onFab={S.isManager ? () => setCreating(true) : undefined} />
         <CreateSheet S={S} A={A} />
-        <SettingsSheet open={settingsOpen} t={t} setT={setT} A={A} />
+        <SettingsSheet open={settingsOpen} t={t} setT={setT} A={A} manager={S.isManager} />
         <ScorerOverlay S={S} A={A} />
         <ShareOverlay S={S} A={A} />
         {payBusy && (
