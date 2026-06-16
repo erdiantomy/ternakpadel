@@ -347,6 +347,7 @@ export default function LiveApp() {
     openSettings: () => setSettingsOpen(true),
     closeSettings: () => setSettingsOpen(false),
     replayOnboarding: async () => { setSettingsOpen(false); await supabase.auth.signOut(); setOnboardingDone(false); },
+    signOut: async () => { setSettingsOpen(false); await supabase.auth.signOut(); },
 
     // player asks to join → goes into the host's request queue
     requestJoin: async (eventId) => {

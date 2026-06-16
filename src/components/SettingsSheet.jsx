@@ -53,6 +53,7 @@ export function SettingsSheet({ open, t, setT, A }) {
         <Col gap={7}>
           <Label>Account</Label>
           <Btn full ghost onClick={A.replayOnboarding}>Replay onboarding</Btn>
+          <Btn full ghost onClick={A.signOut}>Sign out</Btn>
         </Col>
         <Col gap={7}>
           <Label>Help</Label>

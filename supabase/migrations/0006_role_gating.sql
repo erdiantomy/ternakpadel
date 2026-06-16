@@ -28,7 +28,16 @@ create policy "host creates matches" on public.matches for insert to authenticat
 -- ---- event_players: only a host/admin may approve/reject requests -----------
 -- (status only to requested/approved/rejected — never to paid; that is the
 --  payment webhook's job). Replaces the prior "event creator or admin" rule.
+--
+-- The role check MUST be in WITH CHECK as well as USING: Postgres OR-combines
+-- permissive UPDATE policies, validating the old row against the union of all
+-- USING clauses and the new row against the union of all WITH CHECK clauses —
+-- not necessarily the same policy. Without the role in WITH CHECK, a player
+-- could pass "own row update".USING on their own row and this policy's
+-- WITH CHECK to self-approve (status → 'approved') and skip the host. Pinning
+-- the role here closes that escalation.
 drop policy if exists "host or admin approve" on public.event_players;
 create policy "host or admin approve" on public.event_players for update to authenticated
   using (public.is_admin() or public.is_host())
-  with check (status in ('requested','approved','rejected') and paid = false);
+  with check ((public.is_admin() or public.is_host())
+              and status in ('requested','approved','rejected') and paid = false);
