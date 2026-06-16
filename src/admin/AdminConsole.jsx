@@ -90,12 +90,14 @@ export default function AdminConsole() {
   const [payFilter, setPayFilter] = React.useState("all");
   const [payEvent, setPayEvent] = React.useState("all");
   const [paste, setPaste] = React.useState("");
+  const [link, setLink] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [db, setDb] = React.useState({
     profiles: [], events: [], eventPlayers: [], payments: [], matches: [], posts: [], points: [],
   });
   const [form, setForm] = React.useState({
     title: "", type: "Americano", when: "", venue: VENUE_DEFAULT, fee: 100000, courts: 4, max: 16, desc: "",
+    source: "", source_ref: "", source_url: "",
   });
   const [announce, setAnnounce] = React.useState("");
 
@@ -147,16 +149,40 @@ export default function AdminConsole() {
   const createEvent = async () => {
     if (!form.title.trim()) return toast("Title required");
     setBusy(true);
-    const { error } = await supabase.from("events").insert({
+    const row = {
       title: form.title.trim(), type: form.type,
       starts_at: (form.when ? new Date(form.when) : new Date(Date.now() + 86400000)).toISOString(),
       venue: form.venue || "TBD", fee: Number(form.fee) || 0,
       courts: Number(form.courts) || 4, max_players: Number(form.max) || 16,
       description: form.desc || "", created_by: session.user.id,
-    });
+      source: form.source || null, source_url: form.source_url || null, source_ref: form.source_ref || null,
+    };
+    // re-importing the same reclub event syncs (upsert on its ref) instead of duplicating
+    const { error } = form.source_ref
+      ? await supabase.from("events").upsert(row, { onConflict: "source_ref" })
+      : await supabase.from("events").insert(row);
     setBusy(false);
     if (error) return toast(error.message);
-    toast("Event created"); setForm({ ...form, title: "" }); load();
+    toast(form.source_ref ? "Synced from reclub ✓" : "Event created");
+    setForm({ ...form, title: "", source: "", source_ref: "", source_url: "" });
+    load();
+  };
+
+  // fully-automatic: paste a reclub link → edge function fetches & parses → fill the form
+  const importLink = async () => {
+    if (!link.trim()) return toast("Paste a reclub link first");
+    setBusy(true);
+    const { data, error } = await supabase.functions.invoke("import-reclub", { body: { url: link.trim() } });
+    setBusy(false);
+    if (error || data?.error) return toast(data?.error || "Could not fetch that link");
+    setForm((f) => ({
+      ...f,
+      title: data.title ?? f.title, type: data.type ?? f.type, when: data.when ?? f.when,
+      venue: data.venue ?? f.venue, fee: data.fee ?? f.fee,
+      courts: data.courts ?? f.courts, max: data.max ?? f.max, desc: data.desc ?? f.desc,
+      source: data.source || "reclub", source_ref: data.source_ref || "", source_url: data.source_url || link.trim(),
+    }));
+    toast(`Imported from reclub (${data.parsed_from}) — review & Create`);
   };
 
   const setEventStatus = async (id, status) => {
@@ -315,6 +341,14 @@ export default function AdminConsole() {
           <>
             <div style={card}>
               <b style={{ display: "block", marginBottom: 10 }}>Create event</b>
+              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                <input
+                  value={link} onChange={(e) => setLink(e.target.value)}
+                  placeholder="Paste a reclub event link (https://reclub.co/…) for auto-import"
+                  style={{ ...inp, flex: 1 }} />
+                <button onClick={importLink} disabled={busy} style={{ ...btn("var(--accent)"), whiteSpace: "nowrap" }}>{busy ? "…" : "🔗 Fetch from link"}</button>
+              </div>
+              <div style={{ fontSize: 12, color: "var(--text2)", marginBottom: 8 }}>…or paste the caption text:</div>
               <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "flex-start" }}>
                 <textarea
                   value={paste} onChange={(e) => setPaste(e.target.value)}
