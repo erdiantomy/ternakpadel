@@ -189,6 +189,13 @@ export default function LiveApp() {
       toast("Payment not completed — try again");
       window.history.replaceState({}, "", window.location.pathname);
     }
+    // shareable session link: ?event=<id> deep-links straight to that event so
+    // the player can request/pay for that session. Survives the sign-in flow
+    // because eventOpen persists in state until the event renders.
+    if (params.get("event")) {
+      setTab("events"); setEventOpen(params.get("event"));
+      window.history.replaceState({}, "", window.location.pathname);
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------- derive the S contract the screens expect ----------
@@ -366,6 +373,11 @@ export default function LiveApp() {
     openEvent: (id) => { setTab("events"); setEventOpen(id); },
     back: () => setEventOpen(null),
     toast,
+    shareEvent: async (id) => {
+      const url = `${window.location.origin}/?event=${id}`;
+      try { await navigator.clipboard.writeText(url); toast("Session link copied — share it to invite & collect payment"); }
+      catch { toast(url); }
+    },
     openSettings: () => setSettingsOpen(true),
     closeSettings: () => setSettingsOpen(false),
     replayOnboarding: async () => { setSettingsOpen(false); await supabase.auth.signOut(); setOnboardingDone(false); },
