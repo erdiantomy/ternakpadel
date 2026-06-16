@@ -27,6 +27,7 @@ export default function AdminConsole() {
   const [tab, setTab] = React.useState("overview");
   const [toastMsg, setToastMsg] = React.useState(null);
   const [payFilter, setPayFilter] = React.useState("all");
+  const [payEvent, setPayEvent] = React.useState("all");
   const [busy, setBusy] = React.useState(false);
   const [db, setDb] = React.useState({
     profiles: [], events: [], eventPlayers: [], payments: [], matches: [], posts: [], points: [],
@@ -220,13 +221,22 @@ export default function AdminConsole() {
 
         {tab === "payments" && (
           <>
-            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center", flexWrap: "wrap" }}>
               {["all", "paid", "pending", "expired", "failed"].map((s) => (
                 <button key={s} onClick={() => setPayFilter(s)} style={{ ...btn(payFilter === s ? "var(--accent)" : "var(--surface)"), padding: "6px 12px", fontSize: 13, color: payFilter === s ? "#000" : "var(--text)", textTransform: "capitalize" }}>{s}</button>
               ))}
+              <select value={payEvent} onChange={(e) => setPayEvent(e.target.value)} style={{ ...inp, padding: "6px 10px", marginLeft: "auto", maxWidth: 260 }}>
+                <option value="all">All sessions</option>
+                {db.events.map((e) => <option key={e.id} value={e.id}>{e.title}</option>)}
+              </select>
             </div>
+            {(() => {
+              const rows = db.payments.filter((p) => (payFilter === "all" || p.status === payFilter) && (payEvent === "all" || p.event_id === payEvent));
+              const collected = rows.filter((p) => p.status === "paid").reduce((s, p) => s + (p.amount || 0), 0);
+              return <div style={{ marginBottom: 10, color: "var(--text2)", fontSize: 13 }}>{rows.length} payment(s){payEvent !== "all" ? " · " + (evById[payEvent]?.title || "session") : ""} · collected {idr(collected)}</div>;
+            })()}
             <Table head={["Date", "Player", "Event", "Amount", "Method", "Status", "Invoice"]}>
-              {db.payments.filter((p) => payFilter === "all" || p.status === payFilter).map((p) => (
+              {db.payments.filter((p) => (payFilter === "all" || p.status === payFilter) && (payEvent === "all" || p.event_id === payEvent)).map((p) => (
                 <tr key={p.id} style={trS}>
                   <Td>{fmt(p.created_at)}</Td><Td>{nameOf(p.player_id)}</Td>
                   <Td>{evById[p.event_id]?.title || "—"}</Td><Td>{idr(p.amount)}</Td>

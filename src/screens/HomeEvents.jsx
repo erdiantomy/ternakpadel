@@ -201,7 +201,10 @@ export function EventDetail({ S, A, ev }) {
         height: 130, background: "linear-gradient(135deg, var(--accent-soft), var(--surface2) 70%)",
         display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "12px 16px 14px",
       }}>
-        <button onClick={A.back} style={{ alignSelf: "flex-start", background: "var(--surface)", border: "1px solid var(--line)", color: "var(--text)", borderRadius: 999, padding: "6px 13px", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>← Back</button>
+        <Row style={{ justifyContent: "space-between" }}>
+          <button onClick={A.back} style={{ background: "var(--surface)", border: "1px solid var(--line)", color: "var(--text)", borderRadius: 999, padding: "6px 13px", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>← Back</button>
+          <button onClick={() => A.shareEvent(ev.id)} style={{ background: "var(--surface)", border: "1px solid var(--line)", color: "var(--text)", borderRadius: 999, padding: "6px 13px", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>🔗 Share</button>
+        </Row>
         <Col gap={3}>
           <Row gap={6}>
             <Pill small on>{ev.type}</Pill>
