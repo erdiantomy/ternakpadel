@@ -27,3 +27,5 @@ jobs:
         run: supabase functions deploy xendit-webhook --project-ref "$PROJECT_REF" --no-verify-jwt
       - name: Deploy send-otp-whatsapp
         run: supabase functions deploy send-otp-whatsapp --project-ref "$PROJECT_REF" --no-verify-jwt
+      - name: Deploy provision-player
+        run: supabase functions deploy provision-player --project-ref "$PROJECT_REF"
