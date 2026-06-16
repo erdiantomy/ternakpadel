@@ -16,9 +16,17 @@ export function ProfileScreen({ S, A }) {
           <Disp size={20}>{me.name}</Disp>
           <Body size={12.5} dim>{me.user} · {me.skill} · {me.side} side · member since {me.memberSince}</Body>
         </Col>
-        <Btn small ghost onClick={() => A.openShare("rank")}>Share</Btn>
+        <Btn small ghost onClick={A.openEditProfile}>Edit</Btn>
         <Btn small ghost onClick={A.openSettings}>⚙</Btn>
       </Row>
+
+      {me.bio && <Body size={13} style={{ marginTop: -4 }}>{me.bio}</Body>}
+      {(me.instagram || me.reclub_url) && (
+        <Row gap={14} style={{ marginTop: -2 }}>
+          {me.instagram && <a href={`https://instagram.com/${me.instagram}`} target="_blank" rel="noreferrer" style={{ color: "var(--accent-text)", fontSize: 12.5, fontWeight: 700, textDecoration: "none" }}>📷 @{me.instagram}</a>}
+          {me.reclub_url && <a href={me.reclub_url} target="_blank" rel="noreferrer" style={{ color: "var(--accent-text)", fontSize: 12.5, fontWeight: 700, textDecoration: "none" }}>🎾 reclub</a>}
+        </Row>
+      )}
 
       <Row gap={8}>
         {[["Matches", S.matches], ["Wins", S.wins], ["Win rate", S.winRate + "%"], ["Rank", "#" + S.rank]].map(([l, v]) => (
@@ -178,6 +186,52 @@ export function CreateSheet({ S, A }) {
         </Row>
         <Body size={11.5} dim>Smart matchmaking will balance pairings by ranking, partner history and social mixing.</Body>
         <Btn primary full onClick={() => A.createEvent(name || ("New " + format), format, courts, max, when)}>Create & open registration</Btn>
+      </Col>
+    </Sheet>
+  );
+}
+
+// ---------- Edit profile (bio, Instagram, reclub link) ----------
+
+export function EditProfileSheet({ open, S, A }) {
+  const me = S.me || {};
+  const [fullName, setFullName] = React.useState("");
+  const [bio, setBio] = React.useState("");
+  const [instagram, setInstagram] = React.useState("");
+  const [reclub, setReclub] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  React.useEffect(() => {
+    if (open) { setFullName(me.name || ""); setBio(me.bio || ""); setInstagram(me.instagram || ""); setReclub(me.reclub_url || ""); }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  const inputStyle = {
+    background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12,
+    padding: "12px 14px", color: "var(--text)", fontFamily: "var(--font-body)", fontSize: 14, outline: "none",
+    width: "100%", boxSizing: "border-box",
+  };
+  const syncReclub = async () => {
+    if (!reclub.trim()) return A.toast("Paste your reclub link or @handle first");
+    setBusy(true);
+    const d = await A.syncReclubPlayer(reclub.trim());
+    setBusy(false);
+    if (d) { if (d.name) setFullName(d.name); if (d.reclub_url) setReclub(d.reclub_url); }
+  };
+  return (
+    <Sheet open={open} onClose={A.closeEditProfile} title="Edit profile">
+      <Col gap={12}>
+        <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Name" style={inputStyle} />
+        <textarea value={bio} onChange={(e) => setBio(e.target.value)} maxLength={280}
+          placeholder="Short bio — your padel story (max 280)"
+          style={{ ...inputStyle, minHeight: 76, resize: "vertical", fontFamily: "var(--font-body)" }} />
+        <input value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="Instagram @handle" style={inputStyle} />
+        <Col gap={6}>
+          <Body size={11} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.06em" }}>reclub profile</Body>
+          <Row gap={8}>
+            <input value={reclub} onChange={(e) => setReclub(e.target.value)} placeholder="reclub.co/players/@handle" style={{ ...inputStyle, flex: 1 }} />
+            <Btn small ghost onClick={syncReclub}>{busy ? "…" : "Sync"}</Btn>
+          </Row>
+          <Body size={11} dim>Syncs your public name &amp; handle from reclub and links your profile.</Body>
+        </Col>
+        <Btn primary full onClick={() => A.saveProfile({ full_name: fullName, bio, instagram, reclub_url: reclub })}>Save profile</Btn>
       </Col>
     </Sheet>
   );

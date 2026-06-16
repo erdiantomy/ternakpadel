@@ -5,7 +5,7 @@ import { TabBar, Toast, Body } from "../components/atoms.jsx";
 import { SettingsSheet } from "../components/SettingsSheet.jsx";
 import { HomeScreen, EventsScreen, EventDetail } from "../screens/HomeEvents.jsx";
 import { MatchesScreen, ScorerOverlay, RankingsScreen } from "../screens/LiveRank.jsx";
-import { ProfileScreen, ShareOverlay, CreateSheet } from "../screens/Profile.jsx";
+import { ProfileScreen, ShareOverlay, CreateSheet, EditProfileSheet } from "../screens/Profile.jsx";
 import { HostConsole } from "../screens/Host.jsx";
 import { LiveOnboarding } from "./LiveOnboarding.jsx";
 import { CourtBadge } from "../components/BrandMark.jsx";
@@ -87,6 +87,7 @@ export default function LiveApp() {
   const [payBusy, setPayBusy] = React.useState(false);
   const [matchResult, setMatchResult] = React.useState(null);
   const [onboardingDone, setOnboardingDone] = React.useState(false);
+  const [editingProfile, setEditingProfile] = React.useState(false);
 
   const [db, setDb] = React.useState({
     profile: null, profiles: [], events: [], eventPlayers: [], posts: [], likes: [],
@@ -353,6 +354,7 @@ export default function LiveApp() {
       initials: initialsOf(db.profile.full_name),
       skill: db.profile.skill, side: db.profile.side, city: db.profile.city,
       memberSince: new Date(db.profile.created_at).getFullYear(),
+      bio: db.profile.bio || "", instagram: db.profile.instagram || "", reclub_url: db.profile.reclub_url || "",
     } : null;
 
     const heroEv = events[0];
@@ -386,6 +388,28 @@ export default function LiveApp() {
     },
     openSettings: () => setSettingsOpen(true),
     closeSettings: () => setSettingsOpen(false),
+    openEditProfile: () => setEditingProfile(true),
+    closeEditProfile: () => setEditingProfile(false),
+    saveProfile: async (patch) => {
+      const ig = (patch.instagram || "").trim()
+        .replace(/^https?:\/\/(www\.)?instagram\.com\//i, "").replace(/^@/, "").replace(/\/$/, "");
+      const clean = {
+        full_name: (patch.full_name || "").trim() || db.profile?.full_name || "Player",
+        bio: (patch.bio || "").slice(0, 280),
+        instagram: ig || null,
+        reclub_url: (patch.reclub_url || "").trim() || null,
+      };
+      const { error } = await supabase.from("profiles").update(clean).eq("id", uid);
+      if (error) return toast(error.message);
+      setEditingProfile(false); toast("Profile saved ✓"); refresh();
+    },
+    // pulls the public display name + handle from a reclub player link
+    syncReclubPlayer: async (url) => {
+      const { data, error } = await supabase.functions.invoke("import-reclub-player", { body: { url } });
+      if (error || data?.error) { toast(data?.error || "Couldn't sync from reclub"); return null; }
+      toast(data.note || "Synced from reclub ✓");
+      return data; // { name, handle, reclub_url }
+    },
     replayOnboarding: async () => { setSettingsOpen(false); await supabase.auth.signOut(); setOnboardingDone(false); },
     signOut: async () => { setSettingsOpen(false); await supabase.auth.signOut(); },
 
@@ -566,6 +590,7 @@ export default function LiveApp() {
         <TabBar tab={tab} setTab={A.setTab} onFab={S.isManager ? () => setCreating(true) : undefined} />
         <CreateSheet S={S} A={A} />
         <SettingsSheet open={settingsOpen} t={t} setT={setT} A={A} manager={S.isManager} />
+        <EditProfileSheet open={editingProfile} S={S} A={A} />
         <ScorerOverlay S={S} A={A} />
         <ShareOverlay S={S} A={A} />
         {payBusy && (
