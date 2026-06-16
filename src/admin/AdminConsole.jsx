@@ -185,6 +185,26 @@ export default function AdminConsole() {
     toast(`Imported from reclub (${data.parsed_from}) — review & Create`);
   };
 
+  // one-click refresh of a reclub-imported event from its source link.
+  // updates the live fields but preserves the admin's chosen status.
+  const syncEvent = async (e) => {
+    if (!e.source_url) return toast("No source link to sync from");
+    setBusy(true);
+    const { data, error } = await supabase.functions.invoke("import-reclub", { body: { url: e.source_url } });
+    if (error || data?.error) { setBusy(false); return toast(data?.error || "Sync failed"); }
+    const upd = {
+      title: data.title || e.title, type: data.type || e.type, venue: data.venue || e.venue,
+      fee: typeof data.fee === "number" ? data.fee : e.fee,
+      courts: data.courts || e.courts, max_players: data.max || e.max_players,
+      description: data.desc ?? e.description,
+    };
+    if (data.when) upd.starts_at = new Date(data.when).toISOString();
+    const { error: e2 } = await supabase.from("events").update(upd).eq("id", e.id);
+    setBusy(false);
+    if (e2) return toast(e2.message);
+    toast("Synced from reclub ✓"); load();
+  };
+
   const setEventStatus = async (id, status) => {
     const { error } = await supabase.from("events").update({ status }).eq("id", id);
     if (error) return toast(error.message);
@@ -375,9 +395,15 @@ export default function AdminConsole() {
                   <Td>{e.title}</Td><Td>{e.type}</Td><Td>{fmt(e.starts_at)}</Td><Td>{e.venue}</Td>
                   <Td>{idr(e.fee)}</Td><Td>{paidByEvent(e.id)}/{e.max_players}</Td>
                   <Td>
-                    <select value={e.status} onChange={(ev) => setEventStatus(e.id, ev.target.value)} style={{ ...inp, padding: "5px 8px" }}>
-                      {EVENT_STATUS.map((s) => <option key={s}>{s}</option>)}
-                    </select>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <select value={e.status} onChange={(ev) => setEventStatus(e.id, ev.target.value)} style={{ ...inp, padding: "5px 8px" }}>
+                        {EVENT_STATUS.map((s) => <option key={s}>{s}</option>)}
+                      </select>
+                      {e.source === "reclub" && (
+                        <button onClick={() => syncEvent(e)} disabled={busy} title={"Re-sync from " + (e.source_url || "reclub")}
+                          style={{ ...btn("var(--surface)"), padding: "5px 9px", whiteSpace: "nowrap" }}>🔄</button>
+                      )}
+                    </div>
                   </Td>
                 </tr>
               ))}
