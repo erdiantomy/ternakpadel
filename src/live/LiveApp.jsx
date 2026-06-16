@@ -9,6 +9,7 @@ import { ProfileScreen, ShareOverlay, CreateSheet } from "../screens/Profile.jsx
 import { HostConsole } from "../screens/Host.jsx";
 import { LiveOnboarding } from "./LiveOnboarding.jsx";
 import { CourtBadge } from "../components/BrandMark.jsx";
+import { VENUE_DEFAULT } from "../lib/courts.js";
 
 // ---------- helpers ----------
 
@@ -457,7 +458,7 @@ export default function LiveApp() {
       const { error } = await supabase.from("events").insert({
         title: name, type: format, courts, max_players: max,
         starts_at: startsAt.toISOString(),
-        venue: "Padel Pro SCBD", fee: 100000, pts: format === "League" ? 25 : 10,
+        venue: VENUE_DEFAULT, fee: 100000, pts: format === "League" ? 25 : 10,
         description: "Smart matchmaking will balance pairings as players register.",
         created_by: uid,
       });

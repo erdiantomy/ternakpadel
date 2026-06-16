@@ -2,6 +2,7 @@ import React from "react";
 import { supabase } from "../lib/supabase.js";
 import { tpTheme } from "../theme.js";
 import { CourtBadge } from "../components/BrandMark.jsx";
+import { VENUE_DEFAULT, courtName } from "../lib/courts.js";
 
 // Superadmin operations console — reachable at /admin.
 // Gated on profiles.is_admin (see supabase/migrations/0002_admin.sql).
@@ -31,7 +32,7 @@ export default function AdminConsole() {
     profiles: [], events: [], eventPlayers: [], payments: [], matches: [], posts: [], points: [],
   });
   const [form, setForm] = React.useState({
-    title: "", type: "Americano", when: "", venue: "Padel Pro SCBD", fee: 100000, courts: 4, max: 16,
+    title: "", type: "Americano", when: "", venue: VENUE_DEFAULT, fee: 100000, courts: 4, max: 16,
   });
   const [announce, setAnnounce] = React.useState("");
 
@@ -273,7 +274,7 @@ export default function AdminConsole() {
           <Table head={["Event", "Round", "Court", "Team A", "Team B", "Score", "Status"]}>
             {db.matches.map((m) => (
               <tr key={m.id} style={trS}>
-                <Td>{evById[m.event_id]?.title || "—"}</Td><Td>{m.round}</Td><Td>{m.court}</Td>
+                <Td>{evById[m.event_id]?.title || "—"}</Td><Td>{m.round}</Td><Td>{courtName(m.court)}</Td>
                 <Td>{m.team_a_names}</Td><Td>{m.team_b_names}</Td>
                 <Td>{m.score_a}–{m.score_b}</Td>
                 <Td><span style={{ color: m.status === "live" ? "#46d369" : "var(--text2)", fontWeight: 700 }}>{m.status}</span></Td>
