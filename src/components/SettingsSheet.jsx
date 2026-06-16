@@ -10,7 +10,7 @@ function Label({ children }) {
   return <Body size={11} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.06em" }}>{children}</Body>;
 }
 
-export function SettingsSheet({ open, t, setT, A }) {
+export function SettingsSheet({ open, t, setT, A, manager }) {
   return (
     <Sheet open={open} onClose={A.closeSettings} title="Settings">
       <Col gap={14}>
@@ -46,13 +46,16 @@ export function SettingsSheet({ open, t, setT, A }) {
           <Label>Density</Label>
           <Seg options={["comfy", "compact"]} value={t.density} onChange={(v) => setT("density", v)} />
         </Col>
-        <Col gap={7}>
-          <Label>Hosting</Label>
-          <Btn full ghost onClick={A.enterHost}>▤ Open host console (for community hosts)</Btn>
-        </Col>
+        {manager && (
+          <Col gap={7}>
+            <Label>Hosting</Label>
+            <Btn full ghost onClick={A.enterHost}>▤ Open host console (for community hosts)</Btn>
+          </Col>
+        )}
         <Col gap={7}>
           <Label>Account</Label>
           <Btn full ghost onClick={A.replayOnboarding}>Replay onboarding</Btn>
+          <Btn full ghost onClick={A.signOut}>Sign out</Btn>
         </Col>
         <Col gap={7}>
           <Label>Help</Label>

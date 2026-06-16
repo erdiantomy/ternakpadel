@@ -1,14 +1,13 @@
 import React from "react";
-import { TP_DATA } from "../data.js";
 import { Disp, Body, Num, Card, Ava, Pill, Btn, Row, Col, SecHead, Spark, Sheet } from "../components/atoms.jsx";
 import { CourtBadge } from "../components/BrandMark.jsx";
 
 // Profile / career screen, share-card overlay, create-match sheet, onboarding.
 
 export function ProfileScreen({ S, A }) {
-  const me = S.me || TP_DATA.me;
-  const badges = S.badges || TP_DATA.badges;
-  const seasons = S.seasons || TP_DATA.seasons;
+  const me = S.me || { name: "Player", user: "", skill: "", side: "", memberSince: "", initials: "" };
+  const badges = S.badges || [];
+  const seasons = S.seasons || [];
   return (
     <Col gap={12} style={{ padding: "calc(14px * var(--sp)) 16px 90px" }}>
       <Row gap={12}>

@@ -1,6 +1,7 @@
 import React from "react";
 import { Disp, Body, Num, Card, Ava, Pill, Btn, Row, Col, SecHead } from "../components/atoms.jsx";
 import { CourtBadge } from "../components/BrandMark.jsx";
+import { VENUE_DEFAULT, courtName } from "../lib/courts.js";
 
 // Host console — landscape tablet view for community hosts leading matches.
 // Shares live/standings state with the player app.
@@ -11,7 +12,7 @@ function HostCourtCard({ court, idx, A, target }) {
   return (
     <Card style={{ display: "flex", flexDirection: "column", gap: 12, borderColor: done ? "var(--accent)" : "var(--line)" }} pad={18}>
       <Row style={{ justifyContent: "space-between" }}>
-        <Body size={12} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.08em" }}>Court {idx + 1}</Body>
+        <Body size={12} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.08em" }}>{courtName(court.court || idx + 1)}</Body>
         {done
           ? <Pill small on>Game point reached</Pill>
           : <Body size={12} dim>to {target}</Body>}
@@ -61,7 +62,7 @@ export function HostConsole({ S, A }) {
             <Body size={11.5} bold color="var(--accent-text)">LIVE</Body>
           </Row>
           <Disp size={17}>{live.title || "Friday Night Americano"}</Disp>
-          <Body size={12} dim style={{ marginTop: 3 }}>{live.venue || "Padel Pro SCBD"} · {live.courts.length} courts aktif</Body>
+          <Body size={12} dim style={{ marginTop: 3 }}>{live.venue || VENUE_DEFAULT} · {live.courts.length} courts aktif</Body>
         </Card>
         <Row gap={8}>
           <Card pad={11} style={{ flex: 1, textAlign: "center" }}>
@@ -102,7 +103,7 @@ export function HostConsole({ S, A }) {
           ))}
           {resting && (
             <Card pad={18} style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 8, borderStyle: "dashed", minHeight: 180 }}>
-              <Body size={13} dim>Court {live.courts.length + 1} — resting</Body>
+              <Body size={13} dim>{courtName(live.courts.length + 1)} — resting</Body>
               <Body size={12.5} dim style={{ textAlign: "center" }}>{resting}<br />back in next round</Body>
             </Card>
           )}
@@ -129,7 +130,7 @@ export function HostConsole({ S, A }) {
         <Col gap={7}>
           {nextPairs.map(([a, b], i) => (
             <Card key={i} pad={11}>
-              <Body size={10.5} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Court {i + 1}</Body>
+              <Body size={10.5} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>{courtName(i + 1)}</Body>
               <Body size={12.5} bold>{a}</Body>
               <Body size={11.5} dim style={{ margin: "1px 0" }}>vs</Body>
               <Body size={12.5} bold>{b}</Body>

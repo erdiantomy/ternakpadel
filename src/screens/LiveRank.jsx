@@ -1,5 +1,6 @@
 import React from "react";
 import { Disp, Body, Num, Card, Ava, Pill, Btn, Seg, Row, Col, SecHead } from "../components/atoms.jsx";
+import { VENUE_DEFAULT, courtName } from "../lib/courts.js";
 
 // Matches tab: live event (spectator courts + scorer mode + standings).
 
@@ -22,13 +23,13 @@ export function MatchesScreen({ S, A }) {
           <Body size={12.5} bold>LIVE · Round {live.round}/{live.totalRounds || 7}</Body>
         </Row>
       </Row>
-      <Body size={13} dim style={{ marginTop: -8 }}>{live.title || "Friday Night Americano"} · {live.venue || "Padel Pro SCBD"}</Body>
+      <Body size={13} dim style={{ marginTop: -8 }}>{live.title || "Friday Night Americano"} · {live.venue || VENUE_DEFAULT}</Body>
 
       {live.courts.map((c, i) => (
         <Card key={c.id} accent={c.yours} onClick={c.yours ? () => A.setScorer(true) : undefined}>
           <Row style={{ justifyContent: "space-between", marginBottom: 8 }}>
             <Body size={11} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.07em" }}>
-              Court {i + 1}{c.yours ? " · your match" : ""}
+              {courtName(c.court || i + 1)}{c.yours ? " · your match" : ""}
             </Body>
             {c.yours && <Body size={12} bold color="var(--accent-text)">Score it →</Body>}
           </Row>
@@ -73,7 +74,7 @@ export function ScorerOverlay({ S, A }) {
         <button onClick={() => A.setScorer(false)} style={{ background: "var(--surface)", border: "1px solid var(--line)", color: "var(--text)", borderRadius: 999, padding: "6px 13px", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>↓ Close</button>
         <Row gap={6}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--danger)", animation: "tpPulse 1.2s infinite" }} />
-          <Body size={12.5} bold>Court {c.court || 2} · Round {S.live.round} · to {c.target || 21}</Body>
+          <Body size={12.5} bold>{courtName(c.court || 1)} · Round {S.live.round} · to {c.target || 21}</Body>
         </Row>
       </Row>
 

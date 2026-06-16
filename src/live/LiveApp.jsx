@@ -9,6 +9,7 @@ import { ProfileScreen, ShareOverlay, CreateSheet } from "../screens/Profile.jsx
 import { HostConsole } from "../screens/Host.jsx";
 import { LiveOnboarding } from "./LiveOnboarding.jsx";
 import { CourtBadge } from "../components/BrandMark.jsx";
+import { VENUE_DEFAULT } from "../lib/courts.js";
 
 // ---------- helpers ----------
 
@@ -354,6 +355,8 @@ export default function LiveApp() {
       rankHistory: rh, badgesGot: badges.filter((b) => b.got).length,
       checkedIn, scorer, share, creating, paying: payBusy, matchResult,
       shareLine: matchResult?.line, shareSub: matchResult?.sub,
+      // only hosts/admins may create events & matches and approve requests
+      isManager: !!(db.profile?.is_admin || db.profile?.is_host),
     };
   }, [db, uid, scorer, share, creating, payBusy, matchResult]);
 
@@ -366,6 +369,7 @@ export default function LiveApp() {
     openSettings: () => setSettingsOpen(true),
     closeSettings: () => setSettingsOpen(false),
     replayOnboarding: async () => { setSettingsOpen(false); await supabase.auth.signOut(); setOnboardingDone(false); },
+    signOut: async () => { setSettingsOpen(false); await supabase.auth.signOut(); },
 
     // player asks to join → goes into the host's request queue
     requestJoin: async (eventId) => {
@@ -475,11 +479,14 @@ export default function LiveApp() {
     closeShare: () => setShare(null),
     setCreating,
     createEvent: async (name, format, courts, max, when) => {
+      if (!(db.profile?.is_admin || db.profile?.is_host)) {
+        return toast("Only hosts and admins can create events");
+      }
       const startsAt = when ? new Date(when) : new Date(Date.now() + 86400000);
       const { error } = await supabase.from("events").insert({
         title: name, type: format, courts, max_players: max,
         starts_at: startsAt.toISOString(),
-        venue: "Padel Pro SCBD", fee: 100000, pts: format === "League" ? 25 : 10,
+        venue: VENUE_DEFAULT, fee: 100000, pts: format === "League" ? 25 : 10,
         description: "Smart matchmaking will balance pairings as players register.",
         created_by: uid,
       });
@@ -490,9 +497,9 @@ export default function LiveApp() {
     },
 
     enterHost: () => {
-      const isHost = db.profile?.is_host || (S.live && db.events.find((e) => e.id === S.live.eventId)?.created_by === uid);
+      const isHost = db.profile?.is_admin || db.profile?.is_host;
+      if (!isHost) { toast("Host access required — ask an admin"); return; }
       if (!S.live) { toast("No live event to host right now"); return; }
-      if (!isHost) { toast("Only the event host can open the console"); return; }
       setSettingsOpen(false); setMode("host");
     },
     exitHost: () => setMode("player"),
@@ -538,9 +545,9 @@ export default function LiveApp() {
           {tab === "rankings" && <RankingsScreen S={S} />}
           {tab === "profile" && <ProfileScreen S={S} A={A} />}
         </div>
-        <TabBar tab={tab} setTab={A.setTab} onFab={() => setCreating(true)} />
+        <TabBar tab={tab} setTab={A.setTab} onFab={S.isManager ? () => setCreating(true) : undefined} />
         <CreateSheet S={S} A={A} />
-        <SettingsSheet open={settingsOpen} t={t} setT={setT} A={A} />
+        <SettingsSheet open={settingsOpen} t={t} setT={setT} A={A} manager={S.isManager} />
         <ScorerOverlay S={S} A={A} />
         <ShareOverlay S={S} A={A} />
         {payBusy && (
