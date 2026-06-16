@@ -48,11 +48,13 @@ Deno.serve(async (req) => {
 
     const authHeader = "Basic " + btoa(Deno.env.get("XENDIT_SECRET_KEY")! + ":");
 
+    let allExpired = true;
+
     for (const pay of pendingList) {
       const xenditRes = await fetch(`https://api.xendit.co/v2/invoices/${pay.external_id}`, {
         headers: { Authorization: authHeader },
       });
-      if (!xenditRes.ok) continue;
+      if (!xenditRes.ok) { allExpired = false; continue; }
 
       const inv = await xenditRes.json();
 
@@ -83,9 +85,12 @@ Deno.serve(async (req) => {
 
       if (inv.status === "EXPIRED") {
         await admin.from("payments").update({ status: "expired" }).eq("id", pay.id);
+      } else {
+        allExpired = false;
       }
     }
 
+    if (allExpired) return Response.json({ status: "expired" }, { headers: cors });
     return Response.json({ status: "pending" }, { headers: cors });
   } catch (e) {
     return Response.json({ error: String(e) }, { status: 500, headers: cors });

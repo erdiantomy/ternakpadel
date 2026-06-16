@@ -53,8 +53,8 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Reuse existing pending invoice if one exists — prevents duplicate invoices
-    // when user clicks PAY more than once before completing payment.
+    // Reuse existing pending invoice if one exists and is still active on Xendit.
+    // Prevents duplicate invoices when user clicks PAY more than once.
     const { data: existing } = await admin.from("payments")
       .select("id,invoice_url,external_id")
       .eq("event_id", event_id)
@@ -64,8 +64,20 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (existing?.invoice_url) {
-      return Response.json({ invoice_url: existing.invoice_url, payment_id: existing.id }, { headers: cors });
+    if (existing?.invoice_url && existing?.external_id) {
+      const xenditCheck = await fetch(`https://api.xendit.co/v2/invoices/${existing.external_id}`, {
+        headers: { Authorization: "Basic " + btoa(Deno.env.get("XENDIT_SECRET_KEY")! + ":") },
+      });
+      if (xenditCheck.ok) {
+        const xenditInv = await xenditCheck.json();
+        if (xenditInv.status === "PENDING") {
+          return Response.json({ invoice_url: existing.invoice_url, payment_id: existing.id }, { headers: cors });
+        }
+        if (xenditInv.status === "EXPIRED") {
+          await admin.from("payments").update({ status: "expired" }).eq("id", existing.id);
+        }
+        // PAID case: unlikely here but let check-payment handle it; fall through to create new invoice
+      }
     }
 
     const { data: pay, error: payErr } = await admin.from("payments")
