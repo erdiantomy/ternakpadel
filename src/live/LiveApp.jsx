@@ -118,9 +118,11 @@ export default function LiveApp() {
     ] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", uid).single(),
       supabase.from("profiles_public").select("id,full_name,username,is_host"),
-      supabase.from("events").select("*").neq("status", "cancelled").order("starts_at"),
+      // demo events (and their results) stay hidden from players until an admin
+      // promotes them via "Go live" (is_demo → false). See 0011_demo_flag.sql.
+      supabase.from("events").select("*").neq("status", "cancelled").eq("is_demo", false).order("starts_at"),
       supabase.from("event_players").select("*"),
-      supabase.from("feed_posts").select("*").order("created_at", { ascending: false }).limit(40),
+      supabase.from("feed_posts").select("*").eq("is_demo", false).order("created_at", { ascending: false }).limit(40),
       supabase.from("feed_likes").select("*"),
       supabase.from("player_points").select("*"),
       supabase.from("rank_history").select("*").eq("player_id", uid).order("recorded_at"),
@@ -129,10 +131,14 @@ export default function LiveApp() {
       supabase.from("matches").select("*").order("court"),
       supabase.from("seasons").select("*").order("id", { ascending: false }),
     ]);
+    // matches load globally; drop any that belong to a demo event (not in the
+    // visible events list) so a demo court can never leak into the player app.
+    const visibleEventIds = new Set((events || []).map((e) => e.id));
     setDb({
       profile, profiles: profiles || [], events: events || [], eventPlayers: eventPlayers || [],
       posts: posts || [], likes: likes || [], points: points || [], rankHistory: rankHistory || [],
-      badgeCatalog: badgeCatalog || [], myBadges: myBadges || [], matches: matches || [],
+      badgeCatalog: badgeCatalog || [], myBadges: myBadges || [],
+      matches: (matches || []).filter((m) => visibleEventIds.has(m.event_id)),
       seasons: seasons || [],
     });
   }, []);

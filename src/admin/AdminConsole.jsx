@@ -44,6 +44,7 @@ export default function AdminConsole() {
   const [linkPick, setLinkPick] = React.useState("");
   const [linkEmail, setLinkEmail] = React.useState("");
   const [demoEvent, setDemoEvent] = React.useState("");
+  const [dForm, setDForm] = React.useState({ title: "", type: "Americano" });
   const [rosterPick, setRosterPick] = React.useState("");
   const [mForm, setMForm] = React.useState({ a1: "", a2: "", b1: "", b2: "", court: 1 });
 
@@ -156,6 +157,34 @@ export default function AdminConsole() {
     toast("Email linked — they can sign in with it to continue this id"); setLinkEmail("");
   };
 
+  // Demo events carry is_demo=true so the player app hides them (and their
+  // matches/feed) until promoted. They still feed the real leaderboard.
+  const createDemoEvent = async () => {
+    if (!dForm.title.trim()) return toast("Title required");
+    setBusy(true);
+    const { data, error } = await supabase.from("events").insert({
+      title: dForm.title.trim(), type: dForm.type,
+      starts_at: new Date().toISOString(), venue: VENUE_DEFAULT, fee: 0,
+      description: "", created_by: session.user.id, status: "live", is_demo: true,
+    }).select().single();
+    setBusy(false);
+    if (error) return toast(error.message);
+    toast("Demo event created (hidden from players)");
+    setDForm({ title: "", type: "Americano" });
+    await load();
+    if (data?.id) setDemoEvent(data.id);
+  };
+
+  // "Go live": reveal the demo event and its matches to everyone. (Result feed
+  // posts written during the demo stay hidden — feed_posts aren't keyed by event
+  // — but the leaderboard already reflects the points, and matches after this
+  // point post normally.)
+  const goLive = async (eventId) => {
+    const { error } = await supabase.from("events").update({ is_demo: false }).eq("id", eventId);
+    if (error) return toast(error.message);
+    toast("Event is live — now visible to players"); load();
+  };
+
   // Payment bypass: admins may write event_players.paid directly (admin manage
   // rosters policy), so a demo player joins as paid without a Xendit invoice.
   const addToRoster = async () => {
@@ -253,6 +282,7 @@ export default function AdminConsole() {
     ...(DEMO_ENABLED ? [["demo", "Demo", "🧪"]] : []),
   ];
 
+  const demoEvents = db.events.filter((e) => e.is_demo);
   const demoRoster = db.eventPlayers.filter((ep) => ep.event_id === demoEvent);
   const demoMatches = db.matches.filter((m) => m.event_id === demoEvent);
 
@@ -358,7 +388,7 @@ export default function AdminConsole() {
             <Table head={["Title", "Type", "When", "Venue", "Fee", "Paid/Max", "Status"]}>
               {db.events.map((e) => (
                 <tr key={e.id} style={trS}>
-                  <Td>{e.title}</Td><Td>{e.type}</Td><Td>{fmt(e.starts_at)}</Td><Td>{e.venue}</Td>
+                  <Td>{e.title} {e.is_demo && <span style={demoPill}>DEMO</span>}</Td><Td>{e.type}</Td><Td>{fmt(e.starts_at)}</Td><Td>{e.venue}</Td>
                   <Td>{idr(e.fee)}</Td><Td>{paidByEvent(e.id)}/{e.max_players}</Td>
                   <Td>
                     <select value={e.status} onChange={(ev) => setEventStatus(e.id, ev.target.value)} style={{ ...inp, padding: "5px 8px" }}>
@@ -375,7 +405,7 @@ export default function AdminConsole() {
           <Table head={["Event", "Round", "Court", "Team A", "Team B", "Score", "Status"]}>
             {db.matches.map((m) => (
               <tr key={m.id} style={trS}>
-                <Td>{evById[m.event_id]?.title || "—"}</Td><Td>{m.round}</Td><Td>{courtName(m.court)}</Td>
+                <Td>{evById[m.event_id]?.title || "—"} {evById[m.event_id]?.is_demo && <span style={demoPill}>DEMO</span>}</Td><Td>{m.round}</Td><Td>{courtName(m.court)}</Td>
                 <Td>{m.team_a_names}</Td><Td>{m.team_b_names}</Td>
                 <Td>{m.score_a}–{m.score_b}</Td>
                 <Td><span style={{ color: m.status === "live" ? "#46d369" : "var(--text2)", fontWeight: 700 }}>{m.status}</span></Td>
@@ -444,14 +474,23 @@ export default function AdminConsole() {
               </p>
             </div>
 
-            {/* 3. pick the event to run */}
+            {/* 3. create / pick the demo event */}
             <div style={card}>
               <b style={{ display: "block", marginBottom: 10 }}>Demo event</b>
-              <select style={{ ...inp, minWidth: 240 }} value={demoEvent} onChange={(e) => setDemoEvent(e.target.value)}>
-                <option value="">Select an event…</option>
-                {db.events.map((e) => <option key={e.id} value={e.id}>{e.title} · {e.type}</option>)}
-              </select>
-              <span style={{ color: "var(--text2)", fontSize: 12, marginLeft: 10 }}>Create events in the Events tab.</span>
+              <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+                <input style={{ ...inp, minWidth: 200 }} placeholder="New demo event title" value={dForm.title} onChange={(e) => setDForm({ ...dForm, title: e.target.value })} />
+                <select style={inp} value={dForm.type} onChange={(e) => setDForm({ ...dForm, type: e.target.value })}>{EVENT_TYPES.map((t) => <option key={t}>{t}</option>)}</select>
+                <button onClick={createDemoEvent} disabled={busy} style={btn("var(--accent)")}>{busy ? "…" : "Create demo event"}</button>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <select style={{ ...inp, minWidth: 240 }} value={demoEvent} onChange={(e) => setDemoEvent(e.target.value)}>
+                  <option value="">Select a demo event…</option>
+                  {demoEvents.map((e) => <option key={e.id} value={e.id}>{e.title} · {e.type}</option>)}
+                </select>
+                {demoEvent && <button onClick={() => goLive(demoEvent)} style={btn("var(--surface)")}>🚀 Go live (reveal to players)</button>}
+                <span style={{ ...demoPill }}>DEMO · hidden from players</span>
+              </div>
+              {!demoEvents.length && <p style={{ color: "var(--text2)", fontSize: 12, margin: "10px 0 0" }}>No demo events yet — create one above.</p>}
             </div>
 
             {demoEvent && (
@@ -539,6 +578,7 @@ const card = { background: "var(--surface)", border: "1px solid var(--line)", bo
 const trS = { borderBottom: "1px solid var(--line)" };
 const tdS = { padding: "10px 12px", fontSize: 13, whiteSpace: "nowrap", verticalAlign: "middle" };
 const stepBtn = { width: 26, height: 26, borderRadius: 7, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--text)", cursor: "pointer", fontSize: 15, lineHeight: 1, fontWeight: 700 };
+const demoPill = { fontSize: 11, fontWeight: 700, letterSpacing: 0.4, color: "#e6a700", border: "1px solid #e6a70055", background: "#e6a7001a", borderRadius: 999, padding: "3px 8px" };
 
 function Td({ children }) { return <td style={tdS}>{children}</td>; }
 function Table({ head, children }) {

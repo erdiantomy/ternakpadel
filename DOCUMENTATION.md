@@ -195,7 +195,9 @@ mode requires the two `VITE_SUPABASE_*` Actions secrets to be set.
 The **Demo** tab in `/admin` lets you run a whole event by hand — useful for
 showcases and onboarding players before they sign in. It is **not** a sandbox:
 scores feed the **real** leaderboard, so a player you create during a demo keeps
-the same id and points when they later sign in for real.
+the same id and points when they later sign in for real. Demo events are
+**private** — players and hosts don't see the event, its live courts, or its
+result posts until you promote it with **Go live**.
 
 Flow:
 1. **Add temporary player** — name (+ optional login email/phone). Creates a real
@@ -203,14 +205,19 @@ Flow:
 2. **Link login email** — set/replace a player's login email any time. When that
    person signs in with Google or an email magic-link using that address, they
    continue the same id and keep their points (no merge needed).
-3. **Demo event** — pick an event (create it in the Events tab first).
+3. **Demo event** — create one in the Demo tab (it's flagged `is_demo`, hidden
+   from players) and select it.
 4. **Roster** — add players; they're marked **paid** directly, bypassing Xendit.
 5. **Matches** — build a match from the roster, tap +/− to score, **Finish** to
-   award season points / ranks / badges and post to the feed (same `finish_match`
-   the live app uses).
+   award season points / ranks / badges (same `finish_match` the live app uses).
+   Points hit the real leaderboard immediately even while the event is hidden.
+6. **Go live** — when you're ready, click **Go live** on the demo event. It (and
+   its matches) become visible to all players. Players are already real and
+   points already counted, so there's no migration — it's instant.
 
 **One-time enable:**
-1. Run `supabase/migrations/0010_demo_mode.sql` (lets an admin finish any match).
+1. Run `supabase/migrations/0010_demo_mode.sql` then `0011_demo_flag.sql` (admin
+   can finish any match; adds the `is_demo` flag on events/feed for privacy).
 2. Deploy the provisioning function: `supabase functions deploy provision-player`
    (uses the existing service-role secret; no new keys).
 3. Supabase → Auth → enable **same-email identity linking** ("allow linking
