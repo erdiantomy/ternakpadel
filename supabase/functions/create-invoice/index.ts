@@ -52,6 +52,22 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    // Reuse existing pending invoice if one exists — prevents duplicate invoices
+    // when user clicks PAY more than once before completing payment.
+    const { data: existing } = await admin.from("payments")
+      .select("id,invoice_url,external_id")
+      .eq("event_id", event_id)
+      .eq("player_id", user.id)
+      .eq("status", "pending")
+      .not("external_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (existing?.invoice_url) {
+      return Response.json({ invoice_url: existing.invoice_url, payment_id: existing.id }, { headers: cors });
+    }
+
     const { data: pay, error: payErr } = await admin.from("payments")
       .insert({ event_id, player_id: user.id, amount: ev.fee })
       .select().single();

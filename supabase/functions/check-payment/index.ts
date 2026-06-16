@@ -1,5 +1,5 @@
-// POST { event_id } (authenticated) → checks Xendit API for the latest pending payment
-// and updates the DB if Xendit reports PAID.
+// POST { event_id } (authenticated) → checks Xendit API for ALL pending payments
+// for this user+event and updates the DB if any one of them is PAID.
 //
 // Secrets: XENDIT_SECRET_KEY
 // Deploy:  supabase functions deploy check-payment
@@ -32,60 +32,58 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Find the latest pending payment for this user + event
-    const { data: pay } = await admin.from("payments")
+    // Find ALL pending payments for this user + event that have a Xendit invoice ID.
+    // Must check all of them — user may have clicked PAY multiple times, creating
+    // multiple invoices. The one actually paid could be any of them, not just the latest.
+    const { data: pendingList } = await admin.from("payments")
       .select("id,event_id,player_id,status,external_id,method")
       .eq("event_id", event_id)
       .eq("player_id", user.id)
       .eq("status", "pending")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .not("external_id", "is", null);
 
-    if (!pay) return Response.json({ status: "not_found" }, { headers: cors });
-    if (!pay.external_id) return Response.json({ status: pay.status }, { headers: cors });
-
-    // Call Xendit API to get current invoice status
-    const xenditRes = await fetch(`https://api.xendit.co/v2/invoices/${pay.external_id}`, {
-      headers: {
-        Authorization: "Basic " + btoa(Deno.env.get("XENDIT_SECRET_KEY")! + ":"),
-      },
-    });
-
-    if (!xenditRes.ok) {
-      return Response.json({ status: pay.status }, { headers: cors });
+    if (!pendingList || pendingList.length === 0) {
+      return Response.json({ status: "not_found" }, { headers: cors });
     }
 
-    const inv = await xenditRes.json();
+    const authHeader = "Basic " + btoa(Deno.env.get("XENDIT_SECRET_KEY")! + ":");
 
-    if (inv.status === "PAID") {
-      await admin.from("payments").update({
-        status: "paid",
-        method: inv.payment_method ?? inv.payment_channel ?? pay.method ?? null,
-        paid_at: inv.paid_at ?? new Date().toISOString(),
-      }).eq("id", pay.id);
-
-      await admin.from("event_players").upsert({
-        event_id: pay.event_id,
-        player_id: pay.player_id,
-        paid: true,
-        status: "paid",
+    for (const pay of pendingList) {
+      const xenditRes = await fetch(`https://api.xendit.co/v2/invoices/${pay.external_id}`, {
+        headers: { Authorization: authHeader },
       });
+      if (!xenditRes.ok) continue;
 
-      const { data: ev } = await admin.from("events").select("title,venue").eq("id", pay.event_id).single();
-      await admin.from("feed_posts").insert({
-        author: pay.player_id,
-        kind: "join",
-        text: `joined ${ev?.title ?? "an event"}`,
-        sub: ev?.venue ?? "",
-      });
+      const inv = await xenditRes.json();
 
-      return Response.json({ status: "paid" }, { headers: cors });
-    }
+      if (inv.status === "PAID") {
+        await admin.from("payments").update({
+          status: "paid",
+          method: inv.payment_method ?? inv.payment_channel ?? pay.method ?? null,
+          paid_at: inv.paid_at ?? new Date().toISOString(),
+        }).eq("id", pay.id);
 
-    if (inv.status === "EXPIRED") {
-      await admin.from("payments").update({ status: "expired" }).eq("id", pay.id);
-      return Response.json({ status: "expired" }, { headers: cors });
+        await admin.from("event_players").upsert({
+          event_id: pay.event_id,
+          player_id: pay.player_id,
+          paid: true,
+          status: "paid",
+        });
+
+        const { data: ev } = await admin.from("events").select("title,venue").eq("id", pay.event_id).single();
+        await admin.from("feed_posts").insert({
+          author: pay.player_id,
+          kind: "join",
+          text: `joined ${ev?.title ?? "an event"}`,
+          sub: ev?.venue ?? "",
+        });
+
+        return Response.json({ status: "paid" }, { headers: cors });
+      }
+
+      if (inv.status === "EXPIRED") {
+        await admin.from("payments").update({ status: "expired" }).eq("id", pay.id);
+      }
     }
 
     return Response.json({ status: "pending" }, { headers: cors });
