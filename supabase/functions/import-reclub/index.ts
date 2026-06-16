@@ -48,6 +48,28 @@ function findMeet(node: any, depth = 0): any {
   return null;
 }
 
+// the wrapper object carries both the meet and the usersMap (userId → user)
+function findWrap(node: any, depth = 0, seen = new Set()): any {
+  if (!node || typeof node !== "object" || depth > 10 || seen.has(node)) return null;
+  seen.add(node);
+  if (!Array.isArray(node) && (node as any).meet && (node as any).usersMap) return node;
+  for (const k in node) { const r = findWrap((node as any)[k], depth + 1, seen); if (r) return r; }
+  return null;
+}
+
+// confirmed participants (reclub participation status === 1), resolved to display names
+function confirmedPlayers(meet: any, usersMap: any): string[] {
+  if (!meet || !Array.isArray(meet.participants) || !usersMap) return [];
+  const out: string[] = [];
+  for (const p of meet.participants) {
+    if (!p || p.status !== 1) continue; // 0=organizer, 1=confirmed, 2=waitlist, 3=invited
+    const u = usersMap[p.referenceId] || usersMap[String(p.referenceId)] || {};
+    const nm = (u.name || u.username || "").toString().trim();
+    if (nm) out.push(nm);
+  }
+  return out;
+}
+
 function mapType(s: string): string | undefined {
   const t = (s || "").toLowerCase();
   for (const ty of ["Mexicano", "Mixicano", "Americano", "King of the Hill", "Knockout", "League"])
@@ -123,14 +145,24 @@ Deno.serve(async (req) => {
     const titleTag = (html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1] || "").replace(/^reclub\s*/i, "").trim();
 
     let meet: any = null;
+    let players: string[] = [];
     const nm = html.match(/<script[^>]*id="__NUXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
-    if (nm) { try { meet = findMeet(unflatten(JSON.parse(nm[1]))); } catch (_) { /* fall back to caption */ } }
+    if (nm) {
+      try {
+        const root = unflatten(JSON.parse(nm[1]));
+        const wrap = findWrap(root);
+        meet = wrap?.meet || findMeet(root);
+        if (wrap?.meet) players = confirmedPlayers(wrap.meet, wrap.usersMap);
+      } catch (_) { /* fall back to caption */ }
+    }
 
     const caption = (meet?.name || titleTag || "").toString();
     const out = parseCaption(caption);
     out.source = "reclub";
     out.source_url = u.toString();
     out.desc = "";
+    out.players = players;          // confirmed participant display names
+    out.confirmed = players.length; // e.g. 3 (of max)
     const bits: string[] = [];
 
     if (meet) {

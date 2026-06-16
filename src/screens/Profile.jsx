@@ -175,7 +175,8 @@ export function CreateSheet({ S, A }) {
     if (d.courts) setCourts(d.courts);
     if (d.max) setMax(d.max);
     if (d.when) setWhen(d.when);
-    setSrc({ source: d.source || "reclub", source_ref: d.source_ref || null, source_url: d.source_url || link.trim(), fee: d.fee, desc: d.desc });
+    setSrc({ source: d.source || "reclub", source_ref: d.source_ref || null, source_url: d.source_url || link.trim(), fee: d.fee, desc: d.desc, players: Array.isArray(d.players) ? d.players : [] });
+    A.toast(`Generated — ${(d.players || []).length} confirmed player(s) pulled in`);
   };
   const create = () => {
     const extra = {};
@@ -183,8 +184,8 @@ export function CreateSheet({ S, A }) {
       extra.source = src.source; extra.source_ref = src.source_ref; extra.source_url = src.source_url;
       if (typeof src.fee === "number") extra.fee = src.fee;
       if (src.desc) extra.desc = src.desc;
-      // dummy placeholders an admin can later fulfill with real emails
-      extra.roster = Array.from({ length: Math.max(0, Math.min(64, max)) }, (_, i) => ({ name: "Player " + (i + 1), email: null }));
+      // confirmed reclub participants → placeholder players an admin can fulfill with real emails
+      extra.roster = (src.players || []).map((n) => ({ name: n, email: null }));
     }
     A.createEvent(name || ("New " + format), format, courts, max, when, extra);
   };
@@ -199,7 +200,7 @@ export function CreateSheet({ S, A }) {
           <Col gap={8}>
             <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="Paste reclub event link (https://reclub.co/…)" style={inputStyle} />
             <Btn ghost full onClick={generate}>{busy ? "Generating…" : "⚡ Generate from reclub"}</Btn>
-            <Body size={11.5} dim>Auto-fills the details below. Players are added as editable placeholders (Player 1…{max}) — an admin can fill real emails later.</Body>
+            <Body size={11.5} dim>Auto-fills the details below and pulls in the confirmed participants as placeholder players — an admin can fill real emails later.</Body>
           </Col>
         )}
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Event name — e.g. Sunday Mexicano"

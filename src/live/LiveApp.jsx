@@ -239,17 +239,24 @@ export default function LiveApp() {
       .filter((e) => e.status !== "done")
       .map((e) => {
         const roster = (paidByEvent[e.id] || []).map((ep) => profilesById[ep.player_id]).filter(Boolean);
+        // placeholder players seeded from a reclub import (editable by an admin)
+        const placeholders = Array.isArray(e.roster) ? e.roster : [];
+        const placeholderPersons = placeholders.map((s, i) => ({
+          id: "ph-" + i, name: s.name || ("Player " + (i + 1)),
+          initials: initialsOf(s.name || "P"), placeholder: true, email: s.email || null,
+        }));
+        const totalJoined = roster.length + placeholders.length;
         const dd = fmtEventDates(e.starts_at, e.ends_at);
         return {
           id: e.id, title: e.title, type: e.type, venue: e.venue, courts: e.courts,
           fee: e.fee, pts: e.pts, max: e.max_players, desc: e.description,
-          joined: roster.length, full: roster.length >= e.max_players,
+          joined: totalJoined, full: totalJoined >= e.max_players,
           live: e.status === "live", createdBy: e.created_by,
           roster: roster.filter((p) => p.id !== uid).map((p) => firstName(p.full_name)),
           avatars: roster.map((p) => initialsOf(p.full_name)),
           // join-approval flow
           myStatus: myEpByEvent[e.id]?.status || (joined[e.id] ? "paid" : "none"),
-          participants: (paidByEvent[e.id] || []).map((ep) => personOf(ep.player_id)),
+          participants: [...(paidByEvent[e.id] || []).map((ep) => personOf(ep.player_id)), ...placeholderPersons],
           requests: (requestsByEvent[e.id] || []).map((ep) => personOf(ep.player_id)),
           canManage: canManageEvent(e),
           ...dd,
