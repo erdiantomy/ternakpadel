@@ -117,7 +117,7 @@ export default function LiveApp() {
       { data: badgeCatalog }, { data: myBadges }, { data: matches }, { data: seasons },
     ] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", uid).single(),
-      supabase.from("profiles").select("id,full_name,username,is_host"),
+      supabase.from("profiles_public").select("id,full_name,username,is_host"),
       supabase.from("events").select("*").neq("status", "cancelled").order("starts_at"),
       supabase.from("event_players").select("*"),
       supabase.from("feed_posts").select("*").order("created_at", { ascending: false }).limit(40),

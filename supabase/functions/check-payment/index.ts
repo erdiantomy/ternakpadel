@@ -8,7 +8,10 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type",
+  // supabase-js sends apikey + x-client-info alongside authorization; the
+  // preflight must allow them all or the browser blocks the POST.
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 Deno.serve(async (req) => {
