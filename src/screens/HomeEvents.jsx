@@ -1,5 +1,5 @@
 import React from "react";
-import { rupiah } from "../data.js";
+import { rupiah } from "../lib/format.js";
 import { Disp, Body, Num, Card, Ava, Pill, Btn, Row, Col, SecHead, Sheet } from "../components/atoms.jsx";
 
 export function FeedItem({ post, onLike }) {
