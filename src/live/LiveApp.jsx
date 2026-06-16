@@ -333,6 +333,8 @@ export default function LiveApp() {
       rankHistory: rh, badgesGot: badges.filter((b) => b.got).length,
       checkedIn, scorer, share, creating, paying: payBusy, matchResult,
       shareLine: matchResult?.line, shareSub: matchResult?.sub,
+      // only hosts/admins may create events & matches and approve requests
+      isManager: !!(db.profile?.is_admin || db.profile?.is_host),
     };
   }, [db, uid, scorer, share, creating, payBusy, matchResult]);
 
@@ -454,6 +456,9 @@ export default function LiveApp() {
     closeShare: () => setShare(null),
     setCreating,
     createEvent: async (name, format, courts, max, when) => {
+      if (!(db.profile?.is_admin || db.profile?.is_host)) {
+        return toast("Only hosts and admins can create events");
+      }
       const startsAt = when ? new Date(when) : new Date(Date.now() + 86400000);
       const { error } = await supabase.from("events").insert({
         title: name, type: format, courts, max_players: max,
@@ -517,7 +522,7 @@ export default function LiveApp() {
           {tab === "rankings" && <RankingsScreen S={S} />}
           {tab === "profile" && <ProfileScreen S={S} A={A} />}
         </div>
-        <TabBar tab={tab} setTab={A.setTab} onFab={() => setCreating(true)} />
+        <TabBar tab={tab} setTab={A.setTab} onFab={S.isManager ? () => setCreating(true) : undefined} />
         <CreateSheet S={S} A={A} />
         <SettingsSheet open={settingsOpen} t={t} setT={setT} A={A} />
         <ScorerOverlay S={S} A={A} />

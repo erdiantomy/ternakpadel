@@ -245,7 +245,7 @@ export function TabBar({ tab, setTab, onFab }) {
           </button>
         );
       })}
-      <button onClick={onFab} title="Create match" style={{
+      {onFab && <button onClick={onFab} title="Create match" style={{
         position: "absolute", right: 14, top: -26, width: 54, height: 54, borderRadius: "50%",
         background: "var(--accent)", border: "3px solid var(--bg-solid)", cursor: "pointer",
         boxShadow: "0 8px 22px var(--accent-soft), 0 4px 14px rgba(5,8,22,0.5)",
@@ -254,7 +254,7 @@ export function TabBar({ tab, setTab, onFab }) {
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" strokeWidth="2.6" strokeLinecap="round">
           <path d="M12 5v14M5 12h14" />
         </svg>
-      </button>
+      </button>}
     </div>
   );
 }
