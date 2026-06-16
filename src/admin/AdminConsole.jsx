@@ -20,6 +20,9 @@ const fmt = (iso, withTime = true) =>
 const EVENT_TYPES = ["Americano", "Mexicano", "League", "King of the Hill", "Knockout", "Mixicano"];
 const EVENT_STATUS = ["open", "live", "done", "cancelled"];
 const PAY_COLORS = { paid: "#46d369", pending: "#e6a700", expired: "#888", failed: "#ff5c5c" };
+// Demo Mode lets an admin run the whole flow by hand against real data (scores
+// feed the real leaderboard). On by default; set VITE_DEMO_MODE="false" to hide.
+const DEMO_ENABLED = import.meta.env.VITE_DEMO_MODE !== "false";
 
 export default function AdminConsole() {
   const [session, setSession] = React.useState(undefined);
@@ -36,6 +39,14 @@ export default function AdminConsole() {
     title: "", type: "Americano", when: "", venue: VENUE_DEFAULT, fee: 100000, courts: 4, max: 16,
   });
   const [announce, setAnnounce] = React.useState("");
+  // ---- demo mode state ----
+  const [pForm, setPForm] = React.useState({ full_name: "", email: "", phone: "" });
+  const [linkPick, setLinkPick] = React.useState("");
+  const [linkEmail, setLinkEmail] = React.useState("");
+  const [demoEvent, setDemoEvent] = React.useState("");
+  const [dForm, setDForm] = React.useState({ title: "", type: "Americano" });
+  const [rosterPick, setRosterPick] = React.useState("");
+  const [mForm, setMForm] = React.useState({ a1: "", a2: "", b1: "", b2: "", court: 1 });
 
   const toast = React.useCallback((m) => { setToastMsg(m); setTimeout(() => setToastMsg(null), 3000); }, []);
 
@@ -120,6 +131,111 @@ export default function AdminConsole() {
     toast("Posted to feed"); setAnnounce(""); load();
   };
 
+  // ---- demo mode actions ----
+  // Create a temporary player (a real auth user so the id is permanent). An
+  // email is optional now and can be linked later; once a real person signs in
+  // with that email they keep this same profile and its points.
+  const provisionPlayer = async () => {
+    if (!pForm.full_name.trim()) return toast("Name required");
+    setBusy(true);
+    const { data, error } = await supabase.functions.invoke("provision-player", {
+      body: { action: "create", full_name: pForm.full_name.trim(), email: pForm.email.trim(), phone: pForm.phone.trim() },
+    });
+    setBusy(false);
+    if (error || data?.error) return toast(data?.error || error?.message || "Provision failed");
+    toast("Temporary player created"); setPForm({ full_name: "", email: "", phone: "" }); load();
+  };
+
+  const linkLoginEmail = async () => {
+    if (!linkPick) return toast("Pick a player");
+    setBusy(true);
+    const { data, error } = await supabase.functions.invoke("provision-player", {
+      body: { action: "set_email", player_id: linkPick, email: linkEmail.trim() },
+    });
+    setBusy(false);
+    if (error || data?.error) return toast(data?.error || error?.message || "Link failed");
+    toast("Email linked — they can sign in with it to continue this id"); setLinkEmail("");
+  };
+
+  // Demo events carry is_demo=true so the player app hides them (and their
+  // matches/feed) until promoted. They still feed the real leaderboard.
+  const createDemoEvent = async () => {
+    if (!dForm.title.trim()) return toast("Title required");
+    setBusy(true);
+    const { data, error } = await supabase.from("events").insert({
+      title: dForm.title.trim(), type: dForm.type,
+      starts_at: new Date().toISOString(), venue: VENUE_DEFAULT, fee: 0,
+      description: "", created_by: session.user.id, status: "live", is_demo: true,
+    }).select().single();
+    setBusy(false);
+    if (error) return toast(error.message);
+    toast("Demo event created (hidden from players)");
+    setDForm({ title: "", type: "Americano" });
+    await load();
+    if (data?.id) setDemoEvent(data.id);
+  };
+
+  // "Go live": reveal the demo event and its matches to everyone. (Result feed
+  // posts written during the demo stay hidden — feed_posts aren't keyed by event
+  // — but the leaderboard already reflects the points, and matches after this
+  // point post normally.)
+  const goLive = async (eventId) => {
+    const { error } = await supabase.from("events").update({ is_demo: false }).eq("id", eventId);
+    if (error) return toast(error.message);
+    toast("Event is live — now visible to players"); load();
+  };
+
+  // Payment bypass: admins may write event_players.paid directly (admin manage
+  // rosters policy), so a demo player joins as paid without a Xendit invoice.
+  const addToRoster = async () => {
+    if (!demoEvent || !rosterPick) return toast("Pick an event and a player");
+    const { error } = await supabase.from("event_players")
+      .upsert({ event_id: demoEvent, player_id: rosterPick, status: "paid", paid: true }, { onConflict: "event_id,player_id" });
+    if (error) return toast(error.message);
+    toast("Added & marked paid (payment bypassed)"); setRosterPick(""); load();
+  };
+
+  const markPaid = async (eventId, playerId) => {
+    const { error } = await supabase.from("event_players")
+      .update({ status: "paid", paid: true }).eq("event_id", eventId).eq("player_id", playerId);
+    if (error) return toast(error.message);
+    toast("Marked paid"); load();
+  };
+
+  const createMatch = async () => {
+    const teamA = [mForm.a1, mForm.a2].filter(Boolean);
+    const teamB = [mForm.b1, mForm.b2].filter(Boolean);
+    if (!demoEvent) return toast("Pick a demo event");
+    if (!teamA.length || !teamB.length) return toast("Pick at least one player per team");
+    if (teamA.some((id) => teamB.includes(id))) return toast("A player can't be on both teams");
+    const rounds = db.matches.filter((m) => m.event_id === demoEvent).map((m) => m.round);
+    const round = rounds.length ? Math.max(...rounds) + 1 : 1;
+    const { error } = await supabase.from("matches").insert({
+      event_id: demoEvent, round, court: Number(mForm.court) || 1,
+      team_a: teamA, team_b: teamB,
+      team_a_names: teamA.map(nameOf).join(" & "),
+      team_b_names: teamB.map(nameOf).join(" & "),
+    });
+    if (error) return toast(error.message);
+    toast("Match created"); setMForm({ a1: "", a2: "", b1: "", b2: "", court: 1 }); load();
+  };
+
+  const scoreMatch = async (matchId, side, d) => {
+    const m = db.matches.find((x) => x.id === matchId);
+    if (!m) return;
+    const col = side === "A" ? "score_a" : "score_b";
+    const val = Math.max(0, m[col] + d);
+    const { error } = await supabase.from("matches").update({ [col]: val }).eq("id", matchId);
+    if (error) return toast(error.message);
+    load();
+  };
+
+  const finishMatch = async (matchId) => {
+    const { error } = await supabase.rpc("finish_match", { p_match_id: matchId });
+    if (error) return toast(error.message);
+    toast("Match finished — points added to the real leaderboard"); load();
+  };
+
   // ---- gates ----
   const theme = tpTheme(THEME);
   const wrap = (children) => (
@@ -163,7 +279,12 @@ export default function AdminConsole() {
   const TABS = [
     ["overview", "Overview", "📊"], ["members", "Members", "👥"], ["payments", "Payments", "💳"],
     ["events", "Events", "🎾"], ["matches", "Matches", "🏸"], ["content", "Content", "📣"],
+    ...(DEMO_ENABLED ? [["demo", "Demo", "🧪"]] : []),
   ];
+
+  const demoEvents = db.events.filter((e) => e.is_demo);
+  const demoRoster = db.eventPlayers.filter((ep) => ep.event_id === demoEvent);
+  const demoMatches = db.matches.filter((m) => m.event_id === demoEvent);
 
   return wrap(
     <div style={{ display: "flex", minHeight: "100dvh" }}>
@@ -267,7 +388,7 @@ export default function AdminConsole() {
             <Table head={["Title", "Type", "When", "Venue", "Fee", "Paid/Max", "Status"]}>
               {db.events.map((e) => (
                 <tr key={e.id} style={trS}>
-                  <Td>{e.title}</Td><Td>{e.type}</Td><Td>{fmt(e.starts_at)}</Td><Td>{e.venue}</Td>
+                  <Td>{e.title} {e.is_demo && <span style={demoPill}>DEMO</span>}</Td><Td>{e.type}</Td><Td>{fmt(e.starts_at)}</Td><Td>{e.venue}</Td>
                   <Td>{idr(e.fee)}</Td><Td>{paidByEvent(e.id)}/{e.max_players}</Td>
                   <Td>
                     <select value={e.status} onChange={(ev) => setEventStatus(e.id, ev.target.value)} style={{ ...inp, padding: "5px 8px" }}>
@@ -284,7 +405,7 @@ export default function AdminConsole() {
           <Table head={["Event", "Round", "Court", "Team A", "Team B", "Score", "Status"]}>
             {db.matches.map((m) => (
               <tr key={m.id} style={trS}>
-                <Td>{evById[m.event_id]?.title || "—"}</Td><Td>{m.round}</Td><Td>{courtName(m.court)}</Td>
+                <Td>{evById[m.event_id]?.title || "—"} {evById[m.event_id]?.is_demo && <span style={demoPill}>DEMO</span>}</Td><Td>{m.round}</Td><Td>{courtName(m.court)}</Td>
                 <Td>{m.team_a_names}</Td><Td>{m.team_b_names}</Td>
                 <Td>{m.score_a}–{m.score_b}</Td>
                 <Td><span style={{ color: m.status === "live" ? "#46d369" : "var(--text2)", fontWeight: 700 }}>{m.status}</span></Td>
@@ -310,6 +431,137 @@ export default function AdminConsole() {
             </Table>
           </>
         )}
+
+        {tab === "demo" && DEMO_ENABLED && (
+          <>
+            <div style={{ ...card, borderColor: "var(--accent)" }}>
+              <b style={{ display: "block", marginBottom: 4 }}>🧪 Demo Mode — manual fulfilment</b>
+              <p style={{ color: "var(--text2)", fontSize: 13, margin: 0 }}>
+                Run the whole flow by hand for a demo: create temporary players, add them to an
+                event without payment, score and finish matches. <b>Results feed the real
+                leaderboard</b>, so demo players keep their id and points when they go live.
+              </p>
+            </div>
+
+            {/* 1. provision a temporary player */}
+            <div style={card}>
+              <b style={{ display: "block", marginBottom: 10 }}>Add temporary player</b>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 8 }}>
+                <input style={inp} placeholder="Full name" value={pForm.full_name} onChange={(e) => setPForm({ ...pForm, full_name: e.target.value })} />
+                <input style={inp} type="email" placeholder="Login email (optional)" value={pForm.email} onChange={(e) => setPForm({ ...pForm, email: e.target.value })} />
+                <input style={inp} placeholder="Phone (optional)" value={pForm.phone} onChange={(e) => setPForm({ ...pForm, phone: e.target.value })} />
+                <button onClick={provisionPlayer} disabled={busy} style={btn("var(--accent)")}>{busy ? "…" : "Create player"}</button>
+              </div>
+              <p style={{ color: "var(--text2)", fontSize: 12, margin: "10px 0 0" }}>
+                Leave email blank to create a placeholder — link a real email later below.
+              </p>
+            </div>
+
+            {/* 2. link a login email later */}
+            <div style={card}>
+              <b style={{ display: "block", marginBottom: 10 }}>Link login email</b>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(180px,1fr))", gap: 8 }}>
+                <select style={inp} value={linkPick} onChange={(e) => setLinkPick(e.target.value)}>
+                  <option value="">Select player…</option>
+                  {db.profiles.map((p) => <option key={p.id} value={p.id}>{p.full_name || p.username || p.id.slice(0, 8)}</option>)}
+                </select>
+                <input style={inp} type="email" placeholder="email@example.com" value={linkEmail} onChange={(e) => setLinkEmail(e.target.value)} />
+                <button onClick={linkLoginEmail} disabled={busy} style={btn("var(--accent)")}>{busy ? "…" : "Link email"}</button>
+              </div>
+              <p style={{ color: "var(--text2)", fontSize: 12, margin: "10px 0 0" }}>
+                When this person signs in with Google or an email magic-link using this address,
+                they continue this same id. (Requires same-email identity linking enabled in Supabase Auth.)
+              </p>
+            </div>
+
+            {/* 3. create / pick the demo event */}
+            <div style={card}>
+              <b style={{ display: "block", marginBottom: 10 }}>Demo event</b>
+              <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+                <input style={{ ...inp, minWidth: 200 }} placeholder="New demo event title" value={dForm.title} onChange={(e) => setDForm({ ...dForm, title: e.target.value })} />
+                <select style={inp} value={dForm.type} onChange={(e) => setDForm({ ...dForm, type: e.target.value })}>{EVENT_TYPES.map((t) => <option key={t}>{t}</option>)}</select>
+                <button onClick={createDemoEvent} disabled={busy} style={btn("var(--accent)")}>{busy ? "…" : "Create demo event"}</button>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <select style={{ ...inp, minWidth: 240 }} value={demoEvent} onChange={(e) => setDemoEvent(e.target.value)}>
+                  <option value="">Select a demo event…</option>
+                  {demoEvents.map((e) => <option key={e.id} value={e.id}>{e.title} · {e.type}</option>)}
+                </select>
+                {demoEvent && <button onClick={() => goLive(demoEvent)} style={btn("var(--surface)")}>🚀 Go live (reveal to players)</button>}
+                <span style={{ ...demoPill }}>DEMO · hidden from players</span>
+              </div>
+              {!demoEvents.length && <p style={{ color: "var(--text2)", fontSize: 12, margin: "10px 0 0" }}>No demo events yet — create one above.</p>}
+            </div>
+
+            {demoEvent && (
+              <>
+                {/* roster: add players, mark paid (bypass) */}
+                <div style={card}>
+                  <b style={{ display: "block", marginBottom: 10 }}>Roster — {evById[demoEvent]?.title}</b>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                    <select style={{ ...inp, minWidth: 200 }} value={rosterPick} onChange={(e) => setRosterPick(e.target.value)}>
+                      <option value="">Add player…</option>
+                      {db.profiles.filter((p) => !demoRoster.some((ep) => ep.player_id === p.id)).map((p) => (
+                        <option key={p.id} value={p.id}>{p.full_name || p.username || p.id.slice(0, 8)}</option>
+                      ))}
+                    </select>
+                    <button onClick={addToRoster} style={btn("var(--accent)")}>Add &amp; mark paid</button>
+                  </div>
+                  <Table head={["Player", "Status", "Paid", ""]}>
+                    {demoRoster.map((ep) => (
+                      <tr key={ep.player_id} style={trS}>
+                        <Td><Av name={byId[ep.player_id]?.full_name} /> {nameOf(ep.player_id)}</Td>
+                        <Td>{ep.status}</Td>
+                        <Td><span style={{ color: ep.paid ? "#46d369" : "var(--text2)", fontWeight: 700 }}>{ep.paid ? "yes" : "no"}</span></Td>
+                        <Td>{!ep.paid && <button onClick={() => markPaid(demoEvent, ep.player_id)} style={{ ...btn("var(--surface)"), padding: "5px 10px", fontSize: 12 }}>Mark paid</button>}</Td>
+                      </tr>
+                    ))}
+                  </Table>
+                </div>
+
+                {/* matches: create, score, finish */}
+                <div style={card}>
+                  <b style={{ display: "block", marginBottom: 10 }}>New match</b>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 8, alignItems: "center" }}>
+                    {[["a1", "Team A · player 1"], ["a2", "Team A · player 2"], ["b1", "Team B · player 1"], ["b2", "Team B · player 2"]].map(([k, label]) => (
+                      <select key={k} style={inp} value={mForm[k]} onChange={(e) => setMForm({ ...mForm, [k]: e.target.value })}>
+                        <option value="">{label}</option>
+                        {demoRoster.map((ep) => <option key={ep.player_id} value={ep.player_id}>{nameOf(ep.player_id)}</option>)}
+                      </select>
+                    ))}
+                    <input style={inp} type="number" min={1} placeholder="Court" value={mForm.court} onChange={(e) => setMForm({ ...mForm, court: e.target.value })} />
+                    <button onClick={createMatch} style={btn("var(--accent)")}>Create match</button>
+                  </div>
+                  {!demoRoster.length && <p style={{ color: "var(--text2)", fontSize: 12, margin: "10px 0 0" }}>Add players to the roster first.</p>}
+                </div>
+
+                <Table head={["Round", "Court", "Team A", "Score", "Team B", "Status", ""]}>
+                  {demoMatches.map((m) => (
+                    <tr key={m.id} style={trS}>
+                      <Td>{m.round}</Td><Td>{courtName(m.court)}</Td>
+                      <Td>{m.team_a_names}</Td>
+                      <Td>
+                        {m.status === "live" ? (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                            <button onClick={() => scoreMatch(m.id, "A", -1)} style={stepBtn}>−</button>
+                            <b style={{ minWidth: 44, textAlign: "center", display: "inline-block" }}>{m.score_a}–{m.score_b}</b>
+                            <button onClick={() => scoreMatch(m.id, "A", +1)} style={stepBtn}>+</button>
+                            <span style={{ color: "var(--text2)" }}>/</span>
+                            <button onClick={() => scoreMatch(m.id, "B", -1)} style={stepBtn}>−</button>
+                            <button onClick={() => scoreMatch(m.id, "B", +1)} style={stepBtn}>+</button>
+                          </span>
+                        ) : <b>{m.score_a}–{m.score_b}</b>}
+                      </Td>
+                      <Td>{m.team_b_names}</Td>
+                      <Td><span style={{ color: m.status === "live" ? "#46d369" : "var(--text2)", fontWeight: 700 }}>{m.status}</span></Td>
+                      <Td>{m.status === "live" && <button onClick={() => finishMatch(m.id)} style={{ ...btn("var(--accent)"), padding: "5px 10px", fontSize: 12 }}>Finish</button>}</Td>
+                    </tr>
+                  ))}
+                </Table>
+              </>
+            )}
+          </>
+        )}
       </main>
 
       {toastMsg && (
@@ -325,6 +577,8 @@ const inp = { background: "var(--surface)", border: "1px solid var(--line)", bor
 const card = { background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12, padding: 16, marginBottom: 18 };
 const trS = { borderBottom: "1px solid var(--line)" };
 const tdS = { padding: "10px 12px", fontSize: 13, whiteSpace: "nowrap", verticalAlign: "middle" };
+const stepBtn = { width: 26, height: 26, borderRadius: 7, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--text)", cursor: "pointer", fontSize: 15, lineHeight: 1, fontWeight: 700 };
+const demoPill = { fontSize: 11, fontWeight: 700, letterSpacing: 0.4, color: "#e6a700", border: "1px solid #e6a70055", background: "#e6a7001a", borderRadius: 999, padding: "3px 8px" };
 
 function Td({ children }) { return <td style={tdS}>{children}</td>; }
 function Table({ head, children }) {
