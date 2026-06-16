@@ -397,18 +397,10 @@ export default function LiveApp() {
         full_name: (patch.full_name || "").trim() || db.profile?.full_name || "Player",
         bio: (patch.bio || "").slice(0, 280),
         instagram: ig || null,
-        reclub_url: (patch.reclub_url || "").trim() || null,
       };
       const { error } = await supabase.from("profiles").update(clean).eq("id", uid);
       if (error) return toast(error.message);
       setEditingProfile(false); toast("Profile saved ✓"); refresh();
-    },
-    // pulls the public display name + handle from a reclub player link
-    syncReclubPlayer: async (url) => {
-      const { data, error } = await supabase.functions.invoke("import-reclub-player", { body: { url } });
-      if (error || data?.error) { toast(data?.error || "Couldn't sync from reclub"); return null; }
-      toast(data.note || "Synced from reclub ✓");
-      return data; // { name, handle, reclub_url }
     },
     replayOnboarding: async () => { setSettingsOpen(false); await supabase.auth.signOut(); setOnboardingDone(false); },
     signOut: async () => { setSettingsOpen(false); await supabase.auth.signOut(); },
