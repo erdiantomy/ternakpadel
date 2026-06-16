@@ -156,11 +156,33 @@ export default function LiveApp() {
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("paid")) {
-      toast("Payment received — you're in! 🎾");
-      setTab("events"); setEventOpen(params.get("paid"));
+      const eventId = params.get("paid");
+      toast("Memverifikasi pembayaran…");
+      setTab("events"); setEventOpen(eventId);
       window.history.replaceState({}, "", window.location.pathname);
       let tries = 0;
-      const poll = setInterval(() => { refresh(); if (++tries > 5) clearInterval(poll); }, 2000);
+      const poll = setInterval(async () => {
+        tries++;
+        try {
+          const { data } = await supabase.functions.invoke("check-payment", { body: { event_id: eventId } });
+          if (data?.status === "paid") {
+            toast("Pembayaran berhasil — kamu masuk! 🎾");
+            clearInterval(poll);
+            refresh();
+            return;
+          }
+          if (data?.status === "expired") {
+            toast("Invoice kadaluarsa — silakan bayar ulang");
+            clearInterval(poll);
+            return;
+          }
+        } catch (_) { /* ignore, akan retry */ }
+        refresh();
+        if (tries >= 8) {
+          clearInterval(poll);
+          toast("Status pembayaran belum terkonfirmasi, cek kembali nanti");
+        }
+      }, 2500);
       return () => clearInterval(poll);
     }
     if (params.get("payfail")) {
