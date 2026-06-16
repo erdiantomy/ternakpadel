@@ -150,29 +150,68 @@ export function ShareOverlay({ S, A }) {
 // ---------- Create match sheet (FAB) ----------
 
 export function CreateSheet({ S, A }) {
+  const [mode, setMode] = React.useState("manual");
   const [name, setName] = React.useState("");
   const [format, setFormat] = React.useState("Americano");
   const [courts, setCourts] = React.useState(4);
   const [max, setMax] = React.useState(16);
   const [when, setWhen] = React.useState("");
+  const [link, setLink] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [src, setSrc] = React.useState(null); // reclub provenance once generated
   const formats = ["Americano", "Mexicano", "KOTH", "Knockout", "League", "Mixicano"];
   const inputStyle = {
     background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12,
     padding: "12px 14px", color: "var(--text)", fontFamily: "var(--font-body)", fontSize: 14, outline: "none",
-    colorScheme: "dark light",
+    colorScheme: "dark light", width: "100%", boxSizing: "border-box",
+  };
+  const generate = async () => {
+    setBusy(true);
+    const d = await A.fetchReclub(link);
+    setBusy(false);
+    if (!d) return;
+    if (d.title) setName(d.title);
+    if (d.type) setFormat(d.type);
+    if (d.courts) setCourts(d.courts);
+    if (d.max) setMax(d.max);
+    if (d.when) setWhen(d.when);
+    setSrc({ source: d.source || "reclub", source_ref: d.source_ref || null, source_url: d.source_url || link.trim(), fee: d.fee, desc: d.desc });
+  };
+  const create = () => {
+    const extra = {};
+    if (mode === "reclub" && src) {
+      extra.source = src.source; extra.source_ref = src.source_ref; extra.source_url = src.source_url;
+      if (typeof src.fee === "number") extra.fee = src.fee;
+      if (src.desc) extra.desc = src.desc;
+      // dummy placeholders an admin can later fulfill with real emails
+      extra.roster = Array.from({ length: Math.max(0, Math.min(64, max)) }, (_, i) => ({ name: "Player " + (i + 1), email: null }));
+    }
+    A.createEvent(name || ("New " + format), format, courts, max, when, extra);
   };
   return (
-    <Sheet open={S.creating} onClose={() => A.setCreating(false)} title="Create match">
+    <Sheet open={S.creating} onClose={() => A.setCreating(false)} title="Add match">
       <Col gap={12}>
+        <Row gap={7}>
+          <Pill small on={mode === "manual"} onClick={() => setMode("manual")}>✏️ Manual</Pill>
+          <Pill small on={mode === "reclub"} onClick={() => setMode("reclub")}>🔗 From reclub link</Pill>
+        </Row>
+        {mode === "reclub" && (
+          <Col gap={8}>
+            <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="Paste reclub event link (https://reclub.co/…)" style={inputStyle} />
+            <Btn ghost full onClick={generate}>{busy ? "Generating…" : "⚡ Generate from reclub"}</Btn>
+            <Body size={11.5} dim>Auto-fills the details below. Players are added as editable placeholders (Player 1…{max}) — an admin can fill real emails later.</Body>
+          </Col>
+        )}
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Event name — e.g. Sunday Mexicano"
           style={inputStyle} />
         <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} style={inputStyle} />
         <Body size={12} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: -6 }}>Format</Body>
         <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
           {formats.map((f) => <Pill key={f} small on={format === f} onClick={() => setFormat(f)}>{f}</Pill>)}
+          {!formats.includes(format) && <Pill small on>{format}</Pill>}
         </div>
         <Row gap={8}>
-          {[["Courts", courts, setCourts, 1, 8], ["Max players", max, setMax, 4, 32]].map(([l, v, set, lo, hi]) => (
+          {[["Courts", courts, setCourts, 1, 8], ["Max players", max, setMax, 4, 64]].map(([l, v, set, lo, hi]) => (
             <Card key={l} pad={10} style={{ flex: 1 }}>
               <Body size={11} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}>{l}</Body>
               <Row style={{ justifyContent: "space-between", marginTop: 6 }}>
@@ -184,7 +223,7 @@ export function CreateSheet({ S, A }) {
           ))}
         </Row>
         <Body size={11.5} dim>Smart matchmaking will balance pairings by ranking, partner history and social mixing.</Body>
-        <Btn primary full onClick={() => A.createEvent(name || ("New " + format), format, courts, max, when)}>Create & open registration</Btn>
+        <Btn primary full onClick={create}>Create &amp; open registration</Btn>
       </Col>
     </Sheet>
   );

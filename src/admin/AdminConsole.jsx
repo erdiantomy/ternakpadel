@@ -94,6 +94,8 @@ export default function AdminConsole() {
   const [payEvent, setPayEvent] = React.useState("all");
   const [paste, setPaste] = React.useState("");
   const [link, setLink] = React.useState("");
+  const [rosterFor, setRosterFor] = React.useState(null); // event id whose placeholder roster is open
+  const [rosterDraft, setRosterDraft] = React.useState([]);
   const [busy, setBusy] = React.useState(false);
   const [db, setDb] = React.useState({
     profiles: [], events: [], eventPlayers: [], payments: [], matches: [], posts: [], points: [],
@@ -214,6 +216,15 @@ export default function AdminConsole() {
     setBusy(false);
     if (e2) return toast(e2.message);
     toast("Synced from reclub ✓"); load();
+  };
+
+  // placeholder roster (from reclub-generated events): edit / fulfill with emails
+  const openRoster = (e) => { setRosterFor(e.id); setRosterDraft(Array.isArray(e.roster) ? e.roster.map((s) => ({ name: s.name || "", email: s.email || "" })) : []); };
+  const saveRoster = async () => {
+    const clean = rosterDraft.map((s) => ({ name: (s.name || "").trim() || "Player", email: (s.email || "").trim() || null }));
+    const { error } = await supabase.from("events").update({ roster: clean }).eq("id", rosterFor);
+    if (error) return toast(error.message);
+    toast("Roster saved ✓"); setRosterFor(null); load();
   };
 
   const setEventStatus = async (id, status) => {
@@ -510,6 +521,31 @@ export default function AdminConsole() {
                 <button onClick={createEvent} disabled={busy} style={btn("var(--accent)")}>{busy ? "…" : "Create"}</button>
               </div>
             </div>
+            {rosterFor && (
+              <div style={{ ...card, marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <b>Placeholder roster — {evById[rosterFor]?.title || ""}</b>
+                  <button onClick={() => setRosterFor(null)} style={{ ...btn("var(--surface)"), padding: "4px 9px" }}>✕</button>
+                </div>
+                <div style={{ fontSize: 12, color: "var(--text2)", margin: "4px 0 10px" }}>Fill a real email to assign a slot to a player. Add or remove slots as needed.</div>
+                <div style={{ display: "grid", gap: 6 }}>
+                  {rosterDraft.map((s, i) => (
+                    <div key={i} style={{ display: "flex", gap: 6 }}>
+                      <input style={{ ...inp, flex: "0 0 130px" }} value={s.name} placeholder={"Player " + (i + 1)}
+                        onChange={(e) => setRosterDraft((d) => d.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
+                      <input style={{ ...inp, flex: 1 }} type="email" value={s.email} placeholder="real email (optional)"
+                        onChange={(e) => setRosterDraft((d) => d.map((x, j) => j === i ? { ...x, email: e.target.value } : x))} />
+                      <button onClick={() => setRosterDraft((d) => d.filter((_, j) => j !== i))} style={{ ...btn("var(--surface)"), padding: "5px 10px" }}>✕</button>
+                    </div>
+                  ))}
+                  {rosterDraft.length === 0 && <div style={{ fontSize: 12, color: "var(--text2)" }}>No placeholder slots yet.</div>}
+                </div>
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  <button onClick={() => setRosterDraft((d) => [...d, { name: "", email: "" }])} style={btn("var(--surface)")}>+ Add slot</button>
+                  <button onClick={saveRoster} disabled={busy} style={btn("var(--accent)")}>Save roster</button>
+                </div>
+              </div>
+            )}
             <Table head={["Title", "Type", "When", "Venue", "Fee", "Paid/Max", "Status"]}>
               {db.events.map((e) => (
                 <tr key={e.id} style={trS}>
@@ -524,6 +560,8 @@ export default function AdminConsole() {
                         <button onClick={() => syncEvent(e)} disabled={busy} title={"Re-sync from " + (e.source_url || "reclub")}
                           style={{ ...btn("var(--surface)"), padding: "5px 9px", whiteSpace: "nowrap" }}>🔄</button>
                       )}
+                      <button onClick={() => openRoster(e)} title="Placeholder roster"
+                        style={{ ...btn("var(--surface)"), padding: "5px 9px", whiteSpace: "nowrap" }}>👥 {Array.isArray(e.roster) ? e.roster.length : 0}</button>
                     </div>
                   </Td>
                 </tr>

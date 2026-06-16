@@ -512,17 +512,29 @@ export default function LiveApp() {
     openShare: (kind) => setShare(kind),
     closeShare: () => setShare(null),
     setCreating,
-    createEvent: async (name, format, courts, max, when) => {
+    // pull parsed event fields from a reclub link (for the Add Match → reclub path)
+    fetchReclub: async (url) => {
+      if (!url || !url.trim()) { toast("Paste a reclub link first"); return null; }
+      const { data, error } = await supabase.functions.invoke("import-reclub", { body: { url: url.trim() } });
+      if (error || data?.error) { toast(data?.error || "Couldn't read that reclub link"); return null; }
+      return data;
+    },
+    createEvent: async (name, format, courts, max, when, extra = {}) => {
       if (!(db.profile?.is_admin || db.profile?.is_host)) {
         return toast("Only hosts and admins can create events");
       }
+      const TYPES = ["Americano", "Mexicano", "League", "King of the Hill", "Knockout", "Mixicano"];
+      const type = TYPES.includes(format) ? format : (format === "KOTH" ? "King of the Hill" : "Americano");
       const startsAt = when ? new Date(when) : new Date(Date.now() + 86400000);
       const { error } = await supabase.from("events").insert({
-        title: name, type: format, courts, max_players: max,
+        title: name, type, courts, max_players: max,
         starts_at: startsAt.toISOString(),
-        venue: VENUE_DEFAULT, fee: 100000, pts: format === "League" ? 25 : 10,
-        description: "Smart matchmaking will balance pairings as players register.",
+        venue: extra.venue || VENUE_DEFAULT, fee: typeof extra.fee === "number" ? extra.fee : 100000,
+        pts: type === "League" ? 25 : 10,
+        description: extra.desc || "Smart matchmaking will balance pairings as players register.",
         created_by: uid,
+        roster: extra.roster || [],
+        source: extra.source || null, source_ref: extra.source_ref || null, source_url: extra.source_url || null,
       });
       if (error) return toast(error.message);
       setCreating(false); setTab("events");
