@@ -21,6 +21,67 @@ const EVENT_TYPES = ["Americano", "Mexicano", "League", "King of the Hill", "Kno
 const EVENT_STATUS = ["open", "live", "done", "cancelled"];
 const PAY_COLORS = { paid: "#46d369", pending: "#e6a700", expired: "#888", failed: "#ff5c5c" };
 
+// Growth hack: paste any event caption (reclub / WhatsApp / IG) → pre-fill the
+// create-event form. No API, no scraping — pure text parsing, admin reviews
+// before saving. Returns only the fields it confidently found.
+function parseFlyer(text) {
+  const t = (text || "").replace(/ /g, " ");
+  const lc = t.toLowerCase();
+  const out = {};
+
+  const courts = (lc.match(/(\d+)\s*c\b/) || lc.match(/(\d+)\s*courts?/) || [])[1];
+  if (courts) out.courts = Math.min(8, +courts);
+
+  const players = (lc.match(/(\d+)\s*(?:players?|pax)/) || [])[1];
+  const pairs = (lc.match(/(\d+)\s*pair/) || [])[1];
+  if (players) out.max = +players; else if (pairs) out.max = Math.min(64, +pairs * 2);
+
+  const hours = (lc.match(/(\d+)\s*h\b/) || lc.match(/(\d+)\s*hours?/) || [])[1];
+
+  const types = ["Mexicano", "Mixicano", "Americano", "King of the Hill", "Knockout", "League"];
+  let type = types.find((ty) => lc.includes(ty.toLowerCase()));
+  if (!type && lc.includes("koth")) type = "King of the Hill";
+  if (!type && lc.includes("marathon")) type = "Americano";
+  out.type = type || "Americano";
+
+  const vm = t.match(/📍\s*([^\n📍⏰🏆🔥💸🏃]+)/);
+  if (vm) { const v = vm[1].trim().replace(/\s+/g, " "); if (v) out.venue = /toms/i.test(v) ? "TOMS PADEL" : v; }
+
+  const feeM = t.match(/fee[^\d]*(?:rp\s*)?([\d.,]{4,})/i);
+  if (feeM) out.fee = parseInt(feeM[1].replace(/[.,]/g, ""), 10);
+  const prize = (t.match(/(?:prize|cash)[^\d]*([\d.,]{5,})/i) || [])[1];
+
+  const months = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+  const dm = lc.match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})/);
+  const tm = lc.match(/(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)/);
+  if (dm) {
+    const now = new Date();
+    let hh = 0, mm = 0;
+    if (tm) { hh = (+tm[1] % 12) + (tm[3] === "pm" ? 12 : 0); mm = tm[2] ? +tm[2] : 0; }
+    let d = new Date(now.getFullYear(), months[dm[1]], +dm[2], hh, mm);
+    if (d.getTime() < now.getTime() - 36e5) d = new Date(now.getFullYear() + 1, months[dm[1]], +dm[2], hh, mm);
+    const p = (n) => String(n).padStart(2, "0");
+    out.when = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+
+  let title = t
+    .replace(/[^\x00-\x7F]+/g, " ")
+    .replace(/\b\d+\s*[ch]\b/gi, " ")
+    .replace(/\b\d+\s*pair\b/gi, " ")
+    .replace(/win[^]*?prize[^]*?[\d.,]+/i, " ")
+    .replace(/(mon|tue|wed|thu|fri|sat|sun)[a-z]*,?[^]*$/i, " ")
+    .replace(/[|!·*]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  out.title = title.split(" ").slice(0, 7).join(" ") || "Padel Session";
+
+  const bits = [];
+  if (prize) bits.push("Prize Rp " + prize);
+  if (hours) bits.push(hours + " hours");
+  out.desc = bits.join(" · ");
+  return out;
+}
+
 export default function AdminConsole() {
   const [session, setSession] = React.useState(undefined);
   const [me, setMe] = React.useState(undefined); // undefined=loading, null=none
@@ -28,12 +89,13 @@ export default function AdminConsole() {
   const [toastMsg, setToastMsg] = React.useState(null);
   const [payFilter, setPayFilter] = React.useState("all");
   const [payEvent, setPayEvent] = React.useState("all");
+  const [paste, setPaste] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [db, setDb] = React.useState({
     profiles: [], events: [], eventPlayers: [], payments: [], matches: [], posts: [], points: [],
   });
   const [form, setForm] = React.useState({
-    title: "", type: "Americano", when: "", venue: VENUE_DEFAULT, fee: 100000, courts: 4, max: 16,
+    title: "", type: "Americano", when: "", venue: VENUE_DEFAULT, fee: 100000, courts: 4, max: 16, desc: "",
   });
   const [announce, setAnnounce] = React.useState("");
 
@@ -90,7 +152,7 @@ export default function AdminConsole() {
       starts_at: (form.when ? new Date(form.when) : new Date(Date.now() + 86400000)).toISOString(),
       venue: form.venue || "TBD", fee: Number(form.fee) || 0,
       courts: Number(form.courts) || 4, max_players: Number(form.max) || 16,
-      description: "", created_by: session.user.id,
+      description: form.desc || "", created_by: session.user.id,
     });
     setBusy(false);
     if (error) return toast(error.message);
@@ -253,6 +315,15 @@ export default function AdminConsole() {
           <>
             <div style={card}>
               <b style={{ display: "block", marginBottom: 10 }}>Create event</b>
+              <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "flex-start" }}>
+                <textarea
+                  value={paste} onChange={(e) => setPaste(e.target.value)}
+                  placeholder="Paste a reclub / WhatsApp / IG event caption here, then Parse & fill ↓"
+                  style={{ ...inp, flex: 1, minHeight: 64, resize: "vertical", fontFamily: "inherit" }} />
+                <button
+                  onClick={() => { if (!paste.trim()) return toast("Paste a caption first"); setForm((f) => ({ ...f, ...parseFlyer(paste) })); toast("Parsed — review the fields, then Create"); }}
+                  style={{ ...btn("var(--accent)"), whiteSpace: "nowrap" }}>✨ Parse &amp; fill</button>
+              </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 8 }}>
                 <input style={inp} placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
                 <select style={inp} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>{EVENT_TYPES.map((t) => <option key={t}>{t}</option>)}</select>
