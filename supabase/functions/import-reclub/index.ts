@@ -12,6 +12,15 @@ const cors = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// Strip lone UTF-16 surrogates + control chars so values stay valid JSON when the
+// client inserts them (PostgREST rejects unpaired surrogate escapes → PGRST102
+// "Empty or invalid json"). Reclub names/notes routinely carry emoji.
+const clean = (s: unknown): string =>
+  String(s ?? "")
+    .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, "")   // lone high surrogate
+    .replace(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "")   // lone low surrogate
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, ""); // control chars (keep \n, \t)
+
 // ---- minimal Nuxt/devalue unflattener -------------------------------------
 // Nuxt serializes SSR state as a flat array where object/array members are
 // indices into the array, and reactive wrappers are ["Reactive", idx] tags.
@@ -64,7 +73,7 @@ function confirmedPlayers(meet: any, usersMap: any): string[] {
   for (const p of meet.participants) {
     if (!p || p.status !== 1) continue; // 0=organizer, 1=confirmed, 2=waitlist, 3=invited
     const u = usersMap[p.referenceId] || usersMap[String(p.referenceId)] || {};
-    const nm = (u.name || u.username || "").toString().trim();
+    const nm = clean(u.name || u.username || "").trim();
     if (nm) out.push(nm);
   }
   return out;
@@ -172,15 +181,15 @@ Deno.serve(async (req) => {
       if (typeof meet.feeAmount === "number" && meet.feeAmount > 0) out.fee = meet.feeAmount;
       if (typeof meet.numPlayers === "number" && meet.numPlayers > 0) out.max = meet.numPlayers;
       const venueName = meet?.venue?.name || meet?.location?.name;
-      if (venueName) out.venue = /toms/i.test(venueName) ? "TOMS PADEL" : String(venueName);
+      if (venueName) out.venue = /toms/i.test(venueName) ? "TOMS PADEL" : clean(venueName);
       const fmt = meet?.sportFormat?.name;
       if (fmt) out.type = mapType(String(fmt)) || out.type;
-      if (meet.notes && typeof meet.notes === "string" && meet.notes.trim()) bits.unshift(meet.notes.trim().slice(0, 140));
+      if (meet.notes && typeof meet.notes === "string" && meet.notes.trim()) bits.unshift(clean(meet.notes.trim().slice(0, 140)));
     }
     // pull a prize line from the caption for the description
     const prize = (caption.match(/(?:prize|cash)[^\d]*([\d.,]{5,})/i) || [])[1];
     if (prize) bits.unshift("Prize Rp " + prize);
-    out.desc = bits.join(" · ");
+    out.desc = clean(bits.join(" · "));
 
     return Response.json({ ok: true, parsed_from: meet ? "nuxt" : "caption", ...out }, { headers: cors });
   } catch (e) {

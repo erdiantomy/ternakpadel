@@ -17,6 +17,13 @@ const DAYS_ID = ["MIN", "SEN", "SEL", "RAB", "KAM", "JUM", "SAB"];
 const initialsOf = (name) =>
   (name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || "").join("") || "?";
 const firstName = (name) => (name || "Player").trim().split(/\s+/)[0];
+// Strip lone UTF-16 surrogates + control chars that make PostgREST reject the
+// JSON insert body ("Empty or invalid json"). Reclub names/notes carry emoji.
+const safeStr = (s) =>
+  String(s ?? "")
+    .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, "")   // lone high surrogate
+    .replace(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "")   // lone low surrogate
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, ""); // control chars (keep \n, \t)
 
 function fmtEventDates(startsAt, endsAt) {
   const d = new Date(startsAt);
@@ -534,13 +541,13 @@ export default function LiveApp() {
       const type = TYPES.includes(format) ? format : (format === "KOTH" ? "King of the Hill" : "Americano");
       const startsAt = when ? new Date(when) : new Date(Date.now() + 86400000);
       const { error } = await supabase.from("events").insert({
-        title: name, type, courts, max_players: max,
+        title: safeStr(name), type, courts, max_players: max,
         starts_at: startsAt.toISOString(),
-        venue: extra.venue || VENUE_DEFAULT, fee: typeof extra.fee === "number" ? extra.fee : 100000,
+        venue: safeStr(extra.venue) || VENUE_DEFAULT, fee: typeof extra.fee === "number" ? extra.fee : 100000,
         pts: type === "League" ? 25 : 10,
-        description: extra.desc || "Smart matchmaking will balance pairings as players register.",
+        description: safeStr(extra.desc) || "Smart matchmaking will balance pairings as players register.",
         created_by: uid,
-        roster: extra.roster || [],
+        roster: (extra.roster || []).map((r) => ({ name: safeStr(r.name) || "Player", email: r.email || null })),
         source: extra.source || null, source_ref: extra.source_ref || null, source_url: extra.source_url || null,
       });
       if (error) return toast(error.message);

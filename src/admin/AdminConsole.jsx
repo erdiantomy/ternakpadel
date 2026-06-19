@@ -20,6 +20,13 @@ const fmt = (iso, withTime = true) =>
 const EVENT_TYPES = ["Americano", "Mexicano", "League", "King of the Hill", "Knockout", "Mixicano"];
 const EVENT_STATUS = ["open", "live", "done", "cancelled"];
 const PAY_COLORS = { paid: "#46d369", pending: "#e6a700", expired: "#888", failed: "#ff5c5c" };
+// Strip lone UTF-16 surrogates + control chars that make PostgREST reject the
+// JSON insert body ("Empty or invalid json"). Reclub names/notes carry emoji.
+const safeStr = (s) =>
+  String(s ?? "")
+    .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, "")
+    .replace(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "");
 // Demo Mode lets an admin run the whole flow by hand against real data (scores
 // feed the real leaderboard). On by default; set VITE_DEMO_MODE="false" to hide.
 const DEMO_ENABLED = import.meta.env.VITE_DEMO_MODE !== "false";
@@ -163,11 +170,11 @@ export default function AdminConsole() {
     if (!form.title.trim()) return toast("Title required");
     setBusy(true);
     const row = {
-      title: form.title.trim(), type: form.type,
+      title: safeStr(form.title).trim(), type: form.type,
       starts_at: (form.when ? new Date(form.when) : new Date(Date.now() + 86400000)).toISOString(),
-      venue: form.venue || "TBD", fee: Number(form.fee) || 0,
+      venue: safeStr(form.venue) || "TBD", fee: Number(form.fee) || 0,
       courts: Number(form.courts) || 4, max_players: Number(form.max) || 16,
-      description: form.desc || "", created_by: session.user.id,
+      description: safeStr(form.desc), created_by: session.user.id,
       source: form.source || null, source_url: form.source_url || null, source_ref: form.source_ref || null,
     };
     // re-importing the same reclub event syncs (upsert on its ref) instead of duplicating
