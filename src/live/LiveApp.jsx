@@ -38,6 +38,18 @@ function timeAgo(iso) {
 const SETTINGS_DEFAULTS = { theme: "dark", accent: "#C4F22E", font: "brand", density: "comfy", homeLayout: "matchday" };
 const LS_KEY = "tp_live_settings";
 
+// remember which tab / event the user was on so a page refresh lands them back
+// where they were instead of bouncing to Home. (Supabase already persists the
+// auth session itself across refresh — only the in-app position was lost.)
+const NAV_KEY = "tp_live_nav";
+const TABS = ["home", "events", "matches", "rankings", "profile"];
+function loadNav() {
+  try {
+    const n = JSON.parse(localStorage.getItem(NAV_KEY) || "{}");
+    return { tab: TABS.includes(n.tab) ? n.tab : "home", eventOpen: n.eventOpen || null };
+  } catch { return { tab: "home", eventOpen: null }; }
+}
+
 // americano pairing: rank by event standings, groups of 4 → (1&4) vs (2&3)
 function nextPairings(standings, profilesById) {
   const ids = standings.map((s) => s.player_id);
@@ -77,8 +89,8 @@ export default function LiveApp() {
 
   const [session, setSession] = React.useState(undefined); // undefined = loading
   const [mode, setMode] = React.useState("player");
-  const [tab, setTab] = React.useState("home");
-  const [eventOpen, setEventOpen] = React.useState(null);
+  const [tab, setTab] = React.useState(() => loadNav().tab);
+  const [eventOpen, setEventOpen] = React.useState(() => loadNav().eventOpen);
   const [creating, setCreating] = React.useState(false);
   const [scorer, setScorer] = React.useState(false);
   const [share, setShare] = React.useState(null);
@@ -145,6 +157,11 @@ export default function LiveApp() {
   }, []);
 
   React.useEffect(() => { if (session) refresh(); }, [session, refresh]);
+
+  // persist the current nav position so a refresh restores it (see NAV_KEY)
+  React.useEffect(() => {
+    try { localStorage.setItem(NAV_KEY, JSON.stringify({ tab, eventOpen })); } catch { /* ignore */ }
+  }, [tab, eventOpen]);
 
   // realtime: matches / rosters / feed changes push a debounced refresh
   React.useEffect(() => {
