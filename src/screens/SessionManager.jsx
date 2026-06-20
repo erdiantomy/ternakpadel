@@ -84,6 +84,24 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
     return Object.entries(acc).sort((a, b) => b[1] - a[1]).map(([id]) => id);
   }, [matches]);
 
+  // auto-load the reclub roster names into the lineup the first time this session
+  // is opened — no manual import / re-typing. Each name gets a stable id so it
+  // can be placed in matches and tracked across rounds. Players can claim/sign
+  // in to these slots later.
+  const autoImportRef = React.useRef(false);
+  React.useEffect(() => {
+    if (autoImportRef.current || !ev) return;
+    const ph = (Array.isArray(ev.roster) ? ev.roster : []).filter((s) => s && s.name);
+    const hasLineup = Array.isArray(ev.config?.lineup) && ev.config.lineup.length > 0;
+    if (!ph.length || hasLineup || ev.config?.rosterImported) return;
+    autoImportRef.current = true;
+    const lineup = ph.map((s) => ({ id: crypto.randomUUID(), name: s.name }));
+    supabase.from("events")
+      .update({ config: { ...(ev.config || {}), lineup, rosterImported: true } })
+      .eq("id", eventId)
+      .then(({ error }) => { if (!error) { toast("Loaded " + lineup.length + " players from reclub"); refresh(); } });
+  }, [ev, eventId, refresh, toast]);
+
   if (!ev) return null;
 
   // ---------- actions ----------
