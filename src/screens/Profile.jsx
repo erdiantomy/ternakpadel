@@ -20,6 +20,19 @@ export function ProfileScreen({ S, A }) {
         <Btn small ghost onClick={A.openSettings}>⚙</Btn>
       </Row>
 
+      {S.me && !me.phone && (
+        <Card onClick={A.openEditProfile} style={{ borderColor: "var(--accent)", cursor: "pointer" }} pad={12}>
+          <Row gap={10}>
+            <div style={{ fontSize: 20 }}>📱</div>
+            <Col gap={1} style={{ flex: 1, minWidth: 0 }}>
+              <Body size={13} bold>Add your phone number</Body>
+              <Body size={11.5} dim>Link your guest match history to this account — optional, no verification.</Body>
+            </Col>
+            <Body size={12.5} bold color="var(--accent-text)">Add →</Body>
+          </Row>
+        </Card>
+      )}
+
       {me.bio && <Body size={13} style={{ marginTop: -4 }}>{me.bio}</Body>}
       {me.instagram && (
         <Row gap={14} style={{ marginTop: -2 }}>
@@ -243,8 +256,9 @@ export function EditProfileSheet({ open, S, A }) {
   const [fullName, setFullName] = React.useState("");
   const [bio, setBio] = React.useState("");
   const [instagram, setInstagram] = React.useState("");
+  const [phone, setPhone] = React.useState("");
   React.useEffect(() => {
-    if (open) { setFullName(me.name || ""); setBio(me.bio || ""); setInstagram(me.instagram || ""); }
+    if (open) { setFullName(me.name || ""); setBio(me.bio || ""); setInstagram(me.instagram || ""); setPhone(me.phone || ""); }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const inputStyle = {
     background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12,
@@ -259,7 +273,10 @@ export function EditProfileSheet({ open, S, A }) {
           placeholder="Short bio — your padel story (max 280)"
           style={{ ...inputStyle, minHeight: 76, resize: "vertical", fontFamily: "var(--font-body)" }} />
         <input value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="Instagram @handle" style={inputStyle} />
-        <Btn primary full onClick={() => A.saveProfile({ full_name: fullName, bio, instagram })}>Save profile</Btn>
+        <input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="tel"
+          placeholder="WhatsApp / phone (optional)" style={inputStyle} />
+        <Body size={11.5} dim style={{ marginTop: -4 }}>Optional — adding your number links any past sessions you played as a guest to this account.</Body>
+        <Btn primary full onClick={() => A.saveProfile({ full_name: fullName, bio, instagram, phone })}>Save profile</Btn>
       </Col>
     </Sheet>
   );

@@ -446,11 +446,11 @@ export default function AdminConsole() {
         )}
 
         {tab === "members" && (
-          <Table head={["Player", "Username", "City", "Skill", "Joined", "Host", "Admin"]}>
+          <Table head={["Player", "Username", "Phone", "City", "Skill", "Joined", "Host", "Admin"]}>
             {db.profiles.map((p) => (
               <tr key={p.id} style={trS}>
                 <Td><Av name={p.full_name} /> {p.full_name || "—"}</Td>
-                <Td>{p.username || "—"}</Td><Td>{p.city || "—"}</Td><Td>{p.skill || "—"}</Td>
+                <Td>{p.username || "—"}</Td><Td>{p.phone || "—"}</Td><Td>{p.city || "—"}</Td><Td>{p.skill || "—"}</Td>
                 <Td>{fmt(p.created_at, false)}</Td>
                 <Td><Switch on={p.is_host} onClick={() => toggle(p, "is_host")} /></Td>
                 <Td><Switch on={p.is_admin} onClick={() => toggle(p, "is_admin")} /></Td>

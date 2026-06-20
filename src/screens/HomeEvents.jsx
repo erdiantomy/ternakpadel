@@ -271,6 +271,9 @@ export function EventDetail({ S, A, ev }) {
         {ev.canManage && (
           <Btn primary full onClick={() => A.manageSession(ev.id)}>⚙ Manage session — generate, score, edit</Btn>
         )}
+        {ev.canManage && (
+          <Btn full ghost onClick={() => A.shareLeaderboard(ev.id)}>📊 Share live leaderboard</Btn>
+        )}
 
         {status === "none" && !ev.full && <Btn primary full onClick={() => A.requestJoin(ev.id)}>Request to join</Btn>}
         {status === "none" && ev.full && <Btn full ghost onClick={() => A.toast("Event full — we'll WhatsApp you if a spot opens")}>Event full</Btn>}

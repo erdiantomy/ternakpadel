@@ -391,6 +391,7 @@ export default function LiveApp() {
       skill: db.profile.skill, side: db.profile.side, city: db.profile.city,
       memberSince: new Date(db.profile.created_at).getFullYear(),
       bio: db.profile.bio || "", instagram: db.profile.instagram || "", reclub_url: db.profile.reclub_url || "",
+      phone: db.profile.phone || "",
     } : null;
 
     const heroEv = events[0];
@@ -422,6 +423,22 @@ export default function LiveApp() {
       try { await navigator.clipboard.writeText(url); toast("Session link copied — share it to invite & collect payment"); }
       catch { toast(url); }
     },
+    // host-only: mint a non-guessable share token and copy/share the public,
+    // login-free live leaderboard link (/s/<token>). Anyone with the link can
+    // watch standings update live.
+    shareLeaderboard: async (id) => {
+      const { data, error } = await supabase.rpc("generate_share_token", { p_event: id });
+      if (error) return toast(error.message);
+      const url = `${window.location.origin}/s/${data}`;
+      try {
+        if (navigator.share) { await navigator.share({ title: "Live leaderboard", url }); return; }
+        await navigator.clipboard.writeText(url);
+        toast("Leaderboard link copied — anyone can watch live 📊");
+      } catch (_) {
+        try { await navigator.clipboard.writeText(url); toast("Leaderboard link copied 📊"); }
+        catch { toast(url); }
+      }
+    },
     openSettings: () => setSettingsOpen(true),
     closeSettings: () => setSettingsOpen(false),
     openEditProfile: () => setEditingProfile(true),
@@ -434,6 +451,13 @@ export default function LiveApp() {
         bio: (patch.bio || "").slice(0, 280),
         instagram: ig || null,
       };
+      // phone is optional (no OTP). Only patch it when the field is present so we
+      // never clobber an existing number. Saving it triggers the server-side
+      // auto-link of any matching guest player history (see 0016 migration).
+      if (patch.phone !== undefined) {
+        const phone = (patch.phone || "").trim();
+        clean.phone = phone || null;
+      }
       const { error } = await supabase.from("profiles").update(clean).eq("id", uid);
       if (error) return toast(error.message);
       setEditingProfile(false); toast("Profile saved ✓"); refresh();

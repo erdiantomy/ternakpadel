@@ -117,6 +117,22 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
   if (!ev) return null;
 
   // ---------- actions ----------
+  // host-only: mint/return the share token and copy the public live leaderboard
+  // link (/s/<token>). The RPC enforces host-only on the server.
+  const shareLeaderboard = async () => {
+    const { data, error } = await supabase.rpc("generate_share_token", { p_event: eventId });
+    if (error) return toast(error.message);
+    const url = `${window.location.origin}/s/${data}`;
+    try {
+      if (navigator.share) { await navigator.share({ title: (ev?.title || "Session") + " — live leaderboard", url }); return; }
+      await navigator.clipboard.writeText(url);
+      toast("Leaderboard link copied — anyone can watch live 📊");
+    } catch (_) {
+      try { await navigator.clipboard.writeText(url); toast("Leaderboard link copied 📊"); }
+      catch { toast(url); }
+    }
+  };
+
   const setStatus = async (status) => {
     const { error } = await supabase.from("events").update({ status }).eq("id", eventId);
     if (error) return toast(error.message);
@@ -275,7 +291,10 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
     <div style={{ position: "absolute", inset: 0, zIndex: 75, background: "var(--bg)", display: "flex", flexDirection: "column", animation: "tpFade .15s" }}>
       <Row style={{ justifyContent: "space-between", padding: "calc(14px + env(safe-area-inset-top)) 16px 12px", borderBottom: "1px solid var(--line)" }}>
         <button onClick={onClose} style={{ background: "var(--surface)", border: "1px solid var(--line)", color: "var(--text)", borderRadius: 999, padding: "6px 13px", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>← Done</button>
-        <StatusBadge status={ev.status} />
+        <Row gap={8}>
+          <button onClick={shareLeaderboard} title="Share live leaderboard" style={{ background: "var(--surface)", border: "1px solid var(--line)", color: "var(--text)", borderRadius: 999, padding: "6px 13px", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>📊 Share</button>
+          <StatusBadge status={ev.status} />
+        </Row>
       </Row>
 
       <div style={{ flex: 1, overflowY: "auto" }}>
