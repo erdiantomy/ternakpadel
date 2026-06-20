@@ -245,8 +245,11 @@ export function TabBar({ tab, setTab, onFab }) {
           </button>
         );
       })}
+      {/* FAB floats ABOVE the tab bar (bottom:100% of this row) so it never
+          overlaps the Profile tab. zIndex keeps it over scrolling content. */}
       {onFab && <button onClick={onFab} title="Create match" style={{
-        position: "absolute", right: 14, top: -26, width: 54, height: 54, borderRadius: "50%",
+        position: "absolute", right: 16, bottom: "calc(100% + 14px)", zIndex: 40,
+        width: 54, height: 54, borderRadius: "50%",
         background: "var(--accent)", border: "3px solid var(--bg-solid)", cursor: "pointer",
         boxShadow: "0 8px 22px var(--accent-soft), 0 4px 14px rgba(5,8,22,0.5)",
         display: "flex", alignItems: "center", justifyContent: "center",
