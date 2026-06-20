@@ -46,9 +46,10 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
   const profilesById = React.useMemo(
     () => Object.fromEntries(db.profiles.map((p) => [p.id, p])), [db.profiles]);
 
-  // paid roster = the real, registered players that can be placed in slots
+  // roster = every registered player for this event (payment is NOT required to
+  // run the session); only explicitly rejected requests are excluded.
   const roster = db.eventPlayers
-    .filter((ep) => ep.event_id === eventId && (ep.paid || ep.status === "paid"))
+    .filter((ep) => ep.event_id === eventId && ep.status !== "rejected")
     .map((ep) => ep.player_id);
 
   const names = (ev?.config?.names) || {};
@@ -60,6 +61,11 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
     .sort((a, b) => a.round - b.round || a.order_index - b.order_index || a.court - b.court);
   const rounds = [...new Set(matches.map((m) => m.round))].sort((a, b) => a - b);
   const lastRound = rounds.length ? Math.max(...rounds) : 0;
+
+  // players who already appeared in earlier rounds — the next round is generated
+  // from THIS set (not the raw roster) so the lineup & names continue from the
+  // previous generation. Falls back to the roster for the very first round.
+  const playedIds = [...new Set(matches.flatMap((m) => [...m.team_a, ...m.team_b]))];
 
   // points-mode standings (sum of each player's team score across the session)
   const standingsIds = React.useMemo(() => {
@@ -98,9 +104,9 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
     if (await persistConfig(next)) { toast("Settings saved ✓"); refresh(); }
   };
 
-  const insertRound = async (round, conf) => {
-    const { courts } = buildRound({ baseIds: roster, standingsIds, config: conf, round, nameOf });
-    if (!courts.length) { toast("Need at least 4 paid players to make a court"); return false; }
+  const insertRound = async (round, conf, baseIds) => {
+    const { courts } = buildRound({ baseIds, standingsIds, config: conf, round, nameOf });
+    if (!courts.length) { toast("Need at least 4 players to make a court"); return false; }
     const { error } = await supabase.from("matches").insert(courts.map((c) => ({
       event_id: eventId, round, court: c.court, order_index: c.order_index,
       team_a: c.team_a, team_b: c.team_b,
@@ -116,7 +122,9 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
     if (round > draft.rounds) {
       if (!window.confirm(`That's past your ${draft.rounds}-round plan. Generate round ${round} anyway?`)) return;
     }
-    if (await insertRound(round, draft)) { toast("Round " + round + " generated 🎾"); refresh(); }
+    // continue from the previous generation's players; round 1 uses the roster
+    const baseIds = playedIds.length ? playedIds : roster;
+    if (await insertRound(round, draft, baseIds)) { toast("Round " + round + " generated 🎾"); refresh(); }
   };
 
   const regenerateAll = async () => {
@@ -127,7 +135,7 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
     });
     const { error } = await supabase.from("matches").delete().eq("event_id", eventId);
     if (error) return toast(error.message);
-    if (await insertRound(1, draft)) { toast("Schedule regenerated from round 1"); refresh(); }
+    if (await insertRound(1, draft, roster)) { toast("Schedule regenerated from round 1"); refresh(); }
   };
 
   const clearRound = async (round) => {
@@ -250,8 +258,8 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
           </Card>
 
           {/* players — rename + swap account in a slot */}
-          <SecHead right={roster.length + " paid"}>Players</SecHead>
-          {roster.length === 0 && <Body size={12.5} dim>No paid players yet. Approved players who pay show up here.</Body>}
+          <SecHead right={roster.length + " players"}>Players</SecHead>
+          {roster.length === 0 && <Body size={12.5} dim>No players registered yet — anyone who requests or joins this event shows up here.</Body>}
           <Col gap={7}>
             {roster.map((id) => (
               <PlayerRow key={id} id={id} name={nameOf(id)} profileName={profilesById[id]?.full_name}
