@@ -69,6 +69,18 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
   const rounds = [...new Set(matches.map((m) => m.round))].sort((a, b) => a - b);
   const lastRound = rounds.length ? Math.max(...rounds) : 0;
 
+  // Mexicano gate: the next round's pairings are seeded from the CURRENT round's
+  // results, so we must not generate until every match in the active round has a
+  // final score. (Americano just rotates the roster, so it isn't gated.)
+  const lastRoundMatches = matches.filter((m) => m.round === lastRound);
+  const gateActive = draft.format === "mexicano" && lastRound > 0;
+  const unscored = gateActive
+    ? lastRoundMatches.filter((m) => !matchComplete({
+        score_a: m.score_a, score_b: m.score_b, target: m.target, targetMode: draft.targetMode,
+      }))
+    : [];
+  const canGenerate = !gateActive || unscored.length === 0;
+
   // players who already appeared in earlier rounds — the next round is generated
   // from THIS set (not the raw roster) so the lineup & names continue from the
   // previous generation. Falls back to the roster for the very first round.
@@ -179,6 +191,12 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
   };
 
   const generateNext = async () => {
+    // hard guard: never advance a Mexicano round while the current one is unscored,
+    // even if the (disabled) button is somehow triggered.
+    if (gateActive && unscored.length > 0) {
+      toast(`Enter all scores first — ${unscored.length} match${unscored.length > 1 ? "es" : ""} in round ${lastRound} still need a final score`);
+      return;
+    }
     const round = lastRound + 1;
     if (round > draft.rounds) {
       if (!window.confirm(`That's past your ${draft.rounds}-round plan. Generate round ${round} anyway?`)) return;
@@ -337,7 +355,15 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
 
           {/* rounds & matches */}
           <SecHead right={lastRound ? "round " + lastRound : "none yet"}>Schedule</SecHead>
-          <Btn primary full onClick={generateNext}>+ Generate round {lastRound + 1}</Btn>
+          <Btn primary full onClick={generateNext}
+            style={canGenerate ? undefined : { opacity: 0.5 }}>
+            + Generate round {lastRound + 1}
+          </Btn>
+          {!canGenerate && (
+            <Body size={11.5} dim style={{ textAlign: "center" }}>
+              Finish scoring round {lastRound} first — {unscored.length} match{unscored.length > 1 ? "es" : ""} still need a final score (Mexicano seeds the next round from these results).
+            </Body>
+          )}
           {rounds.map((r) => {
             const rm = matches.filter((m) => m.round === r);
             return (
