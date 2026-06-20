@@ -26,11 +26,14 @@ export function sessionConfig(ev) {
 //   fixedPartner → (p0,p1) vs (p2,p3): partners stay together
 //   otherwise    → (p0,p3) vs (p1,p2): balanced (strong+weak vs mid pair)
 // The ORDER of `ids` carries the seeding: round 1 = roster order, later rounds =
-// standings order (mexicano) or a rotation (americano). Returns { courts, resting }.
-export function pairCourts(ids, { fixedPartner } = {}) {
+// standings order (mexicano) or a rotation (americano). `courts` caps how many
+// matches run at once (the venue only has so many physical courts) — players who
+// don't fit sit out and are returned in `resting`. Returns { courts, resting }.
+export function pairCourts(ids, { fixedPartner, courts: maxCourts } = {}) {
+  const cap = Number.isFinite(maxCourts) && maxCourts > 0 ? maxCourts : Infinity;
   const courts = [];
   let i = 0;
-  for (; i + 3 < ids.length; i += 4) {
+  for (; i + 3 < ids.length && courts.length < cap; i += 4) {
     const g = ids.slice(i, i + 4);
     courts.push(fixedPartner
       ? { team_a: [g[0], g[1]], team_b: [g[2], g[3]] }
