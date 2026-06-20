@@ -21,6 +21,30 @@ const initialsOf = (n) =>
 const STATUS_LABEL = { open: "Scheduled", live: "Live", paused: "Paused", done: "Finished", cancelled: "Cancelled" };
 const STATUS_COLOR = { open: "var(--text2)", live: "var(--danger)", paused: "#E6A23C", done: "var(--success)", cancelled: "var(--text2)" };
 
+// per-MATCH status (matches.status: live | done | cancelled). Distinct from the
+// event status above. Drives the per-match badge + host override controls (B2).
+const MATCH_STATUS = {
+  live:      { label: "Live",      color: "var(--danger)" },
+  done:      { label: "Done",      color: "var(--success)" },
+  cancelled: { label: "Cancelled", color: "var(--text2)" },
+};
+
+// responsive helper: side-by-side on a wide screen, stacked on a phone (B1).
+function useWide(min = 900) {
+  const q = `(min-width: ${min}px)`;
+  const [wide, setWide] = React.useState(
+    () => (typeof window !== "undefined" && window.matchMedia ? window.matchMedia(q).matches : false));
+  React.useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia(q);
+    const on = (e) => setWide(e.matches);
+    setWide(mq.matches);
+    mq.addEventListener ? mq.addEventListener("change", on) : mq.addListener(on);
+    return () => { mq.removeEventListener ? mq.removeEventListener("change", on) : mq.removeListener(on); };
+  }, [q]);
+  return wide;
+}
+
 export function StatusBadge({ status, onClick }) {
   const s = status || "open";
   return (
@@ -39,6 +63,7 @@ export function StatusBadge({ status, onClick }) {
 
 export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
   const ev = db.events.find((e) => e.id === eventId);
+  const wide = useWide(900);
   const cfg = React.useMemo(() => sessionConfig(ev), [ev]);
   const [draft, setDraft] = React.useState(cfg);
   React.useEffect(() => { setDraft(sessionConfig(ev)); }, [ev]);
@@ -95,6 +120,22 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
     }
     return Object.entries(acc).sort((a, b) => b[1] - a[1]).map(([id]) => id);
   }, [matches]);
+
+  // Live session leaderboard for the side-by-side panel (B1). Mirrors the 0021
+  // session_leaderboard view: sum of each player's own-side score, with CANCELLED
+  // matches EXCLUDED so a voided court never counts toward standings.
+  const standings = React.useMemo(() => {
+    const acc = {};
+    for (const m of matches) {
+      if (m.status === "cancelled") continue;
+      for (const pid of m.team_a) acc[pid] = (acc[pid] || 0) + m.score_a;
+      for (const pid of m.team_b) acc[pid] = (acc[pid] || 0) + m.score_b;
+    }
+    return Object.entries(acc)
+      .map(([id, pts]) => ({ id, pts }))
+      .sort((a, b) => b.pts - a.pts)
+      .map((r, i) => ({ ...r, rank: i + 1, name: nameOf(r.id), me: r.id === uid }));
+  }, [matches, names, lineupNames, uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // auto-load the reclub roster names into the lineup the first time this session
   // is opened — no manual import / re-typing. Each name gets a stable id so it
@@ -249,6 +290,20 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
     refresh();
   };
 
+  // host-only manual status override (B2). Goes through the 0021 set_match_status
+  // RPC, which re-checks host on the SERVER and rejects non-hosts — the client
+  // gate here is convenience only. No scoring is re-run: the leaderboard derives
+  // from matches.status, so the board follows the new status automatically.
+  const setMatchStatus = async (m, status) => {
+    if (m.status === status) return;
+    if (status === "cancelled" &&
+        !window.confirm("Cancel this match? Its scores stop counting toward the leaderboard.")) return;
+    const { error } = await supabase.rpc("set_match_status", { p_match_id: m.id, p_status: status });
+    if (error) return toast(error.message);
+    toast("Match → " + (MATCH_STATUS[status]?.label || status));
+    refresh();
+  };
+
   const move = async (m, dir) => {
     const sameRound = matches.filter((x) => x.round === m.round);
     const idx = sameRound.findIndex((x) => x.id === m.id);
@@ -288,7 +343,7 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
 
   // ---------- render ----------
   return (
-    <div style={{ position: "absolute", inset: 0, zIndex: 75, background: "var(--bg)", display: "flex", flexDirection: "column", animation: "tpFade .15s" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 75, background: "var(--bg)", display: "flex", flexDirection: "column", animation: "tpFade .15s" }}>
       <Row style={{ justifyContent: "space-between", padding: "calc(14px + env(safe-area-inset-top)) 16px 12px", borderBottom: "1px solid var(--line)" }}>
         <button onClick={onClose} style={{ background: "var(--surface)", border: "1px solid var(--line)", color: "var(--text)", borderRadius: 999, padding: "6px 13px", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>← Done</button>
         <Row gap={8}>
@@ -297,8 +352,13 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
         </Row>
       </Row>
 
-      <div style={{ flex: 1, overflowY: "auto" }}>
+      {/* B1: host-only/internal — match view + leaderboard in ONE screen.
+          Desktop = side-by-side; mobile = stacked (leaderboard on top). */}
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: wide ? "row" : "column" }}>
+        {/* match view — full width on mobile, left column on desktop */}
+        <div style={{ flex: 1, minWidth: 0, overflowY: "auto" }}>
         <Col gap={14} style={{ padding: "14px 16px calc(28px + env(safe-area-inset-bottom))" }}>
+          {!wide && <SessionLeaderboard standings={standings} />}
           <Col gap={2}>
             <Body size={11.5} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.08em" }}>Manage session</Body>
             <Disp size={22}>{ev.title}</Disp>
@@ -394,14 +454,51 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
                 {rm.map((m, i) => (
                   <MatchRow key={m.id} m={m} cfg={draft} roster={roster} nameOf={nameOf}
                     first={i === 0} last={i === rm.length - 1}
-                    onScore={score} onMove={move} onSwap={swapSlot} />
+                    onScore={score} onMove={move} onSwap={swapSlot} onSetStatus={setMatchStatus} />
                 ))}
               </Col>
             );
           })}
         </Col>
+        </div>
+        {/* B1: live leaderboard as a side rail on desktop (host-only/internal) */}
+        {wide && (
+          <aside style={{ width: 340, flex: "0 0 340px", borderLeft: "1px solid var(--line)", overflowY: "auto", background: "var(--bg)" }}>
+            <Col gap={12} style={{ padding: "16px 16px calc(28px + env(safe-area-inset-bottom))" }}>
+              <SessionLeaderboard standings={standings} />
+            </Col>
+          </aside>
+        )}
       </div>
     </div>
+  );
+}
+
+// Live per-session leaderboard panel (B1). Same definition as the 0021
+// session_leaderboard view (sum of own-side match scores, cancelled excluded).
+function SessionLeaderboard({ standings }) {
+  return (
+    <Col gap={8}>
+      <SecHead right="live ↻">Leaderboard</SecHead>
+      {standings.length === 0 ? (
+        <Body size={12.5} dim>No scores yet — standings appear as soon as a match is scored.</Body>
+      ) : (
+        <Card pad={8}>
+          {standings.map((p, i) => (
+            <Row key={p.id} gap={10} style={{
+              padding: "8px 8px", borderRadius: 10,
+              background: (i === 0 || p.me) ? "var(--accent-soft)" : "transparent",
+            }}>
+              <Num size={14} style={{ width: 20 }} color={p.rank <= 3 ? "var(--accent-text)" : "var(--text2)"}>{p.rank}</Num>
+              <Ava ini={initialsOf(p.name)} d={26} />
+              <Body size={13} bold={p.me} style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}{p.me ? " (you)" : ""}</Body>
+              <Num size={14}>{p.pts}</Num>
+            </Row>
+          ))}
+        </Card>
+      )}
+      <Body size={10.5} dim>Sum of each player's match scores this session · cancelled matches excluded.</Body>
+    </Col>
   );
 }
 
@@ -457,9 +554,17 @@ function AddPlayer({ onAdd }) {
   );
 }
 
-function MatchRow({ m, cfg, roster, nameOf, first, last, onScore, onMove, onSwap }) {
+function MatchRow({ m, cfg, roster, nameOf, first, last, onScore, onMove, onSwap, onSetStatus }) {
   const [swap, setSwap] = React.useState(null); // {team,pos}
-  const done = matchComplete({ score_a: m.score_a, score_b: m.score_b, target: m.target, targetMode: cfg.targetMode });
+  const complete = matchComplete({ score_a: m.score_a, score_b: m.score_b, target: m.target, targetMode: cfg.targetMode });
+  const st = m.status || "live";
+  const cancelled = st === "cancelled";
+  const meta = MATCH_STATUS[st] || MATCH_STATUS.live;
+  // auto vs host override (B2): there is no persisted "manual" flag (kept the
+  // schema minimal), so we INFER it from the score. 'cancelled' is always a host
+  // action, and a 'done' set before the target is reached is a manual finish.
+  // Everything else (live, or done-by-score) is the normal auto state.
+  const overridden = cancelled || (st === "done" && !complete);
   const slot = (team, pos, id) => (
     <button onClick={() => setSwap({ team, pos })} title="Swap player"
       style={{ background: "none", border: "none", color: "var(--text)", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, cursor: "pointer", textDecoration: "underline dotted", padding: 0 }}>
@@ -467,9 +572,24 @@ function MatchRow({ m, cfg, roster, nameOf, first, last, onScore, onMove, onSwap
     </button>
   );
   return (
-    <Card pad={12} style={{ borderColor: done ? "var(--accent)" : "var(--line)" }}>
+    <Card pad={12} style={{
+      borderColor: cancelled ? "var(--line)" : st === "done" ? "var(--success)" : complete ? "var(--accent)" : "var(--line)",
+      borderStyle: cancelled ? "dashed" : "solid",
+      opacity: cancelled ? 0.65 : 1,
+    }}>
       <Row style={{ justifyContent: "space-between", marginBottom: 8 }}>
-        <Body size={11} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.06em" }}>{courtName(m.court)}</Body>
+        <Row gap={8} style={{ minWidth: 0, alignItems: "center", flexWrap: "wrap" }}>
+          <Body size={11} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.06em" }}>{courtName(m.court)}</Body>
+          <Row gap={5} style={{ alignItems: "center" }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: meta.color, animation: st === "live" ? "tpPulse 1.2s infinite" : "none" }} />
+            <Body size={10.5} bold>{meta.label}</Body>
+            <Body size={9.5} bold dim={!overridden}
+              color={overridden ? "#E6A23C" : undefined}
+              style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              {overridden ? "· host override" : "· auto"}
+            </Body>
+          </Row>
+        </Row>
         <Row gap={4}>
           <Btn small ghost onClick={() => onMove(m, -1)} style={{ minWidth: 34, opacity: first ? 0.35 : 1, padding: "6px 8px" }}>↑</Btn>
           <Btn small ghost onClick={() => onMove(m, 1)} style={{ minWidth: 34, opacity: last ? 0.35 : 1, padding: "6px 8px" }}>↓</Btn>
@@ -483,12 +603,23 @@ function MatchRow({ m, cfg, roster, nameOf, first, last, onScore, onMove, onSwap
             ))}
           </Row>
           <Row gap={6}>
-            <Btn small ghost onClick={() => onScore(m, team, -1)} style={{ minWidth: 34, padding: "6px 8px" }}>−</Btn>
+            <Btn small ghost onClick={() => !cancelled && onScore(m, team, -1)} style={{ minWidth: 34, padding: "6px 8px", opacity: cancelled ? 0.4 : 1 }}>−</Btn>
             <Num size={20} style={{ minWidth: 26, textAlign: "center" }}>{sc}</Num>
-            <Btn small primary onClick={() => onScore(m, team, 1)} style={{ minWidth: 34, padding: "6px 8px" }}>+</Btn>
+            <Btn small primary onClick={() => !cancelled && onScore(m, team, 1)} style={{ minWidth: 34, padding: "6px 8px", opacity: cancelled ? 0.4 : 1 }}>+</Btn>
           </Row>
         </Row>
       ))}
+      {/* B2: host-only manual status override → 0021 set_match_status RPC. The
+          whole SessionManager is host-gated (manageSession), and the RPC also
+          enforces host on the server, so these controls are never live for a
+          non-host. */}
+      <Row gap={6} style={{ marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <Body size={10} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}>Set status</Body>
+        <Pill small on={st === "live"} onClick={() => onSetStatus(m, "live")}>Live</Pill>
+        <Pill small on={st === "done"} onClick={() => onSetStatus(m, "done")}>Done</Pill>
+        <Pill small on={st === "cancelled"} onClick={() => onSetStatus(m, "cancelled")}>Cancel</Pill>
+      </Row>
+      {cancelled && <Body size={10.5} dim style={{ marginTop: 6 }}>Cancelled by host — excluded from the leaderboard.</Body>}
       {swap && (
         <Card pad={10} style={{ marginTop: 8, background: "var(--surface2)" }}>
           <Body size={11.5} dim bold style={{ marginBottom: 7 }}>Place in {courtName(m.court)} · team {swap.team} slot {swap.pos + 1}</Body>
