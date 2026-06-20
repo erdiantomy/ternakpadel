@@ -163,6 +163,7 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
   const shareLeaderboard = async () => {
     const { data, error } = await supabase.rpc("generate_share_token", { p_event: eventId });
     if (error) return toast(error.message);
+    refresh(); // reflect the now-shared state in the header (ev.share_token)
     const url = `${window.location.origin}/s/${data}`;
     try {
       if (navigator.share) { await navigator.share({ title: (ev?.title || "Session") + " — live leaderboard", url }); return; }
@@ -172,6 +173,17 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
       try { await navigator.clipboard.writeText(url); toast("Leaderboard link copied 📊"); }
       catch { toast(url); }
     }
+  };
+
+  // host-only: turn sharing off — the RPC drops the token, so the current
+  // /s/<token> link stops resolving (the public board renders its "not found"
+  // state). The server re-checks host; this confirm is convenience only.
+  const stopSharing = async () => {
+    if (!window.confirm("Stop sharing the live leaderboard? The current public link will stop working.")) return;
+    const { error } = await supabase.rpc("revoke_share_token", { p_event: eventId });
+    if (error) return toast(error.message);
+    toast("Sharing stopped — the public link is now disabled");
+    refresh();
   };
 
   const setStatus = async (status) => {
@@ -347,7 +359,18 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
       <Row style={{ justifyContent: "space-between", padding: "calc(14px + env(safe-area-inset-top)) 16px 12px", borderBottom: "1px solid var(--line)" }}>
         <button onClick={onClose} style={{ background: "var(--surface)", border: "1px solid var(--line)", color: "var(--text)", borderRadius: 999, padding: "6px 13px", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>← Done</button>
         <Row gap={8}>
-          <button onClick={shareLeaderboard} title="Share live leaderboard" style={{ background: "var(--surface)", border: "1px solid var(--line)", color: "var(--text)", borderRadius: 999, padding: "6px 13px", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>📊 Share</button>
+          {ev.share_token ? (
+            <Row gap={6}>
+              {/* sharing is ON: tap the pill to copy/re-share the live link, or Stop to disable it */}
+              <button onClick={shareLeaderboard} title="Copy the live leaderboard link" style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--accent-soft)", border: "1px solid var(--accent)", color: "var(--text)", borderRadius: 999, padding: "6px 13px", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--success)", animation: "tpPulse 1.2s infinite" }} />
+                📊 Shared
+              </button>
+              <button onClick={stopSharing} title="Stop sharing — disable the public link" style={{ background: "var(--surface)", border: "1px solid var(--line)", color: "var(--text2)", borderRadius: 999, padding: "6px 11px", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Stop</button>
+            </Row>
+          ) : (
+            <button onClick={shareLeaderboard} title="Share live leaderboard" style={{ background: "var(--surface)", border: "1px solid var(--line)", color: "var(--text)", borderRadius: 999, padding: "6px 13px", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>📊 Share</button>
+          )}
           <StatusBadge status={ev.status} />
         </Row>
       </Row>

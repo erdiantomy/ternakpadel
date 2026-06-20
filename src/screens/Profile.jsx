@@ -33,6 +33,8 @@ export function ProfileScreen({ S, A }) {
         </Card>
       )}
 
+      {S.me && me.phone && <ClaimGuestCard S={S} A={A} />}
+
       {me.bio && <Body size={13} style={{ marginTop: -4 }}>{me.bio}</Body>}
       {me.instagram && (
         <Row gap={14} style={{ marginTop: -2 }}>
@@ -103,6 +105,66 @@ export function ProfileScreen({ S, A }) {
       </Row>
       <Body size={11.5} dim style={{ textAlign: "center", marginTop: 4 }}>Nothing is deleted. Everything accumulates.</Body>
     </Col>
+  );
+}
+
+// ---------- Claim guest history ----------
+// A signed-in player with a phone on file can attach a guest record (a player
+// who appeared in sessions without an account) to themselves. The claim RPC
+// only succeeds when the guest's phone matches this account's — so we surface a
+// searchable picker and let the server be the source of truth on the match.
+function ClaimGuestCard({ S, A }) {
+  const [open, setOpen] = React.useState(false);
+  const [q, setQ] = React.useState("");
+  const [busyId, setBusyId] = React.useState(null);
+  const guests = S.guests || [];
+  if (!guests.length) return null;
+
+  const term = q.trim().toLowerCase();
+  const matches = term ? guests.filter((g) => g.name.toLowerCase().includes(term)) : guests;
+  const shown = matches.slice(0, 8);
+
+  const claim = async (g) => {
+    setBusyId(g.id);
+    await A.claimPlayer(g.id);
+    setBusyId(null);
+  };
+
+  return (
+    <Card pad={12}>
+      <Row gap={10} onClick={() => setOpen((v) => !v)} style={{ cursor: "pointer" }}>
+        <div style={{ fontSize: 20 }}>🔗</div>
+        <Col gap={1} style={{ flex: 1, minWidth: 0 }}>
+          <Body size={13} bold>Claim your guest history</Body>
+          <Body size={11.5} dim>Played before without an account? Link those sessions to you.</Body>
+        </Col>
+        <Body size={16} dim>{open ? "▾" : "▸"}</Body>
+      </Row>
+
+      {open && (
+        <Col gap={9} style={{ marginTop: 12 }}>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name"
+            style={{ background: "var(--surface2)", border: "1px solid var(--line)", borderRadius: 10, color: "var(--text)", padding: "9px 12px", fontFamily: "var(--font-body)", fontSize: 13, outline: "none" }} />
+          {shown.length === 0 ? (
+            <Body size={12} dim>No guest players match “{q}”.</Body>
+          ) : (
+            shown.map((g) => (
+              <Row key={g.id} gap={9} style={{ background: "var(--surface2)", borderRadius: 10, padding: "8px 10px" }}>
+                <Ava ini={(g.name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || "").join("") || "?"} d={28} />
+                <Body size={13} bold style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.name}</Body>
+                <Btn small primary onClick={() => claim(g)} style={{ opacity: busyId === g.id ? 0.6 : 1, pointerEvents: busyId === g.id ? "none" : "auto" }}>
+                  {busyId === g.id ? "…" : "This is me"}
+                </Btn>
+              </Row>
+            ))
+          )}
+          {matches.length > shown.length && (
+            <Body size={11} dim>Showing {shown.length} of {matches.length} — keep typing to narrow it down.</Body>
+          )}
+          <Body size={11} dim>Only works if the guest's phone matches the number on your profile. If it doesn't, ask the host to merge them for you.</Body>
+        </Col>
+      )}
+    </Card>
   );
 }
 

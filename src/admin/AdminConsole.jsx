@@ -98,7 +98,7 @@ export default function AdminConsole() {
   const [rosterDraft, setRosterDraft] = React.useState([]);
   const [busy, setBusy] = React.useState(false);
   const [db, setDb] = React.useState({
-    profiles: [], events: [], eventPlayers: [], payments: [], matches: [], posts: [], points: [],
+    profiles: [], events: [], eventPlayers: [], payments: [], matches: [], posts: [], points: [], players: [],
   });
   const [form, setForm] = React.useState({
     title: "", type: "Americano", when: "", venue: VENUE_DEFAULT, fee: 100000, courts: 4, max: 16, desc: "",
@@ -113,6 +113,7 @@ export default function AdminConsole() {
   const [dForm, setDForm] = React.useState({ title: "", type: "Americano" });
   const [rosterPick, setRosterPick] = React.useState("");
   const [mForm, setMForm] = React.useState({ a1: "", a2: "", b1: "", b2: "", court: 1 });
+  const [merge, setMerge] = React.useState({ keep: "", drop: "" }); // players-registry merge picker
 
   const toast = React.useCallback((m) => { setToastMsg(m); setTimeout(() => setToastMsg(null), 3000); }, []);
 
@@ -132,7 +133,7 @@ export default function AdminConsole() {
 
   // ---- data ----
   const load = React.useCallback(async () => {
-    const [profiles, events, eventPlayers, payments, matches, posts, points] = await Promise.all([
+    const [profiles, events, eventPlayers, payments, matches, posts, points, players] = await Promise.all([
       supabase.from("profiles").select("*").order("created_at", { ascending: false }),
       supabase.from("events").select("*").order("starts_at", { ascending: false }),
       supabase.from("event_players").select("*"),
@@ -140,10 +141,14 @@ export default function AdminConsole() {
       supabase.from("matches").select("*").order("created_at", { ascending: false }),
       supabase.from("feed_posts").select("*").order("created_at", { ascending: false }).limit(100),
       supabase.from("player_points").select("*"),
+      // players registry (non-PII): name + whether it's linked to an account.
+      // Powers the merge-duplicates tool on the Players tab.
+      supabase.from("players_public").select("id,name,user_id"),
     ]);
     setDb({
       profiles: profiles.data || [], events: events.data || [], eventPlayers: eventPlayers.data || [],
       payments: payments.data || [], matches: matches.data || [], posts: posts.data || [], points: points.data || [],
+      players: players.data || [],
     });
   }, []);
 
@@ -355,6 +360,24 @@ export default function AdminConsole() {
     toast("Match finished — points added to the real leaderboard"); load();
   };
 
+  // ---- players registry: merge duplicates ----
+  const playerName = (id) => db.players.find((p) => p.id === id)?.name || (id ? id.slice(0, 8) : "—");
+  // fold `drop` INTO `keep` — keep inherits the dropped record's history (the
+  // leaderboard views aggregate by canonical player, so a tombstone is enough).
+  // The RPC is host/admin-gated server-side and is idempotent. Irreversible.
+  const mergePlayers = async () => {
+    if (!merge.keep || !merge.drop) return toast("Pick both players");
+    if (merge.keep === merge.drop) return toast("Pick two different players");
+    if (!window.confirm(`Merge "${playerName(merge.drop)}" INTO "${playerName(merge.keep)}"?\n\nAll of ${playerName(merge.drop)}'s match history moves to ${playerName(merge.keep)}, and the duplicate is removed. This can't be undone.`)) return;
+    setBusy(true);
+    const { error } = await supabase.rpc("merge_players", { p_keep: merge.keep, p_drop: merge.drop });
+    setBusy(false);
+    if (error) return toast(error.message);
+    toast("Players merged — history consolidated ✓");
+    setMerge({ keep: "", drop: "" });
+    load();
+  };
+
   // ---- gates ----
   const theme = tpTheme(THEME);
   const wrap = (children) => (
@@ -397,7 +420,7 @@ export default function AdminConsole() {
 
   const TABS = [
     ["overview", "Overview", "📊"], ["members", "Members", "👥"], ["payments", "Payments", "💳"],
-    ["events", "Events", "🎾"], ["matches", "Matches", "🏸"], ["content", "Content", "📣"],
+    ["events", "Events", "🎾"], ["matches", "Matches", "🏸"], ["players", "Players", "🧬"], ["content", "Content", "📣"],
     ...(DEMO_ENABLED ? [["demo", "Demo", "🧪"]] : []),
   ];
 
@@ -582,6 +605,66 @@ export default function AdminConsole() {
             ))}
           </Table>
         )}
+
+        {tab === "players" && (() => {
+          const sorted = db.players.slice().sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+          const opt = (p) => `${p.name || "(no name)"} · ${p.user_id ? "account" : "guest"} · ${p.id.slice(0, 8)}`;
+          return (
+            <>
+              <div style={{ ...card, borderColor: "var(--accent)" }}>
+                <b style={{ display: "block", marginBottom: 4 }}>🧬 Merge duplicate players</b>
+                <p style={{ color: "var(--text2)", fontSize: 13, margin: 0 }}>
+                  Two records for the same person? Merge them. The <b>keep</b> record inherits all of the
+                  <b> drop</b> record's match history (the leaderboard recomputes by canonical player), then the
+                  duplicate is removed. Idempotent, but <b>cannot be undone</b> — pick carefully.
+                </p>
+              </div>
+
+              <div style={card}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 10, alignItems: "end" }}>
+                  <label style={{ display: "block" }}>
+                    <span style={{ fontSize: 12, color: "var(--text2)", display: "block", marginBottom: 5 }}>Keep (survivor)</span>
+                    <select style={{ ...inp, width: "100%" }} value={merge.keep} onChange={(e) => setMerge((m) => ({ ...m, keep: e.target.value }))}>
+                      <option value="">Select player…</option>
+                      {sorted.map((p) => <option key={p.id} value={p.id} disabled={p.id === merge.drop}>{opt(p)}</option>)}
+                    </select>
+                  </label>
+                  <button title="Swap keep / drop" onClick={() => setMerge((m) => ({ keep: m.drop, drop: m.keep }))}
+                    style={{ ...btn("var(--surface)"), padding: "9px 12px" }}>⇄</button>
+                  <label style={{ display: "block" }}>
+                    <span style={{ fontSize: 12, color: "var(--text2)", display: "block", marginBottom: 5 }}>Drop (merged away)</span>
+                    <select style={{ ...inp, width: "100%" }} value={merge.drop} onChange={(e) => setMerge((m) => ({ ...m, drop: e.target.value }))}>
+                      <option value="">Select player…</option>
+                      {sorted.map((p) => <option key={p.id} value={p.id} disabled={p.id === merge.keep}>{opt(p)}</option>)}
+                    </select>
+                  </label>
+                </div>
+                {merge.keep && merge.drop && (
+                  <p style={{ color: "var(--text2)", fontSize: 13, margin: "12px 0 0" }}>
+                    <b>{playerName(merge.drop)}</b> → <b>{playerName(merge.keep)}</b>
+                  </p>
+                )}
+                <button onClick={mergePlayers} disabled={busy || !merge.keep || !merge.drop}
+                  style={{ ...btn("var(--accent)"), marginTop: 12, opacity: (busy || !merge.keep || !merge.drop) ? 0.5 : 1 }}>
+                  {busy ? "…" : "Merge players"}
+                </button>
+              </div>
+
+              <Table head={["Player", "Type", "Player ID"]}>
+                {sorted.map((p) => (
+                  <tr key={p.id} style={trS}>
+                    <Td><Av name={p.name} /> {p.name || "—"}</Td>
+                    <Td>{p.user_id
+                      ? <span style={{ color: "#46d369", fontWeight: 700 }}>account</span>
+                      : <span style={{ color: "var(--text2)", fontWeight: 700 }}>guest</span>}</Td>
+                    <Td><code style={{ fontSize: 12, color: "var(--text2)" }}>{p.id}</code></Td>
+                  </tr>
+                ))}
+              </Table>
+              {!db.players.length && <div style={{ color: "var(--text2)", fontSize: 13 }}>No players in the registry yet.</div>}
+            </>
+          );
+        })()}
 
         {tab === "content" && (
           <>

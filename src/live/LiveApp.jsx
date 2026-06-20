@@ -425,8 +425,16 @@ export default function LiveApp() {
     const checkedIn = !!db.eventPlayers.find((ep) => ep.player_id === uid && heroEv && ep.event_id === heroEv.id && ep.checked_in);
     const rh = ranks.length >= 2 ? ranks.slice(-12) : [rank, rank];
 
+    // unclaimed guest players (no account yet) — the Profile "claim your history"
+    // card lists these so a signed-in user can attach a guest record to themselves
+    // (server validates the phone match). Non-PII: name only, from players_public.
+    const guests = db.playersPub
+      .filter((pl) => !pl.user_id)
+      .map((pl) => ({ id: pl.id, name: pl.name || "Guest" }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
     return {
-      me, events, joined, feed, timeline, live, standings, players, badges,
+      me, events, joined, feed, timeline, live, standings, players, badges, guests,
       seasons: db.seasons.map((s) => ({ id: s.id, name: s.name, rank: "—", now: s.is_current })),
       matches: mine.matches || 0, wins: mine.wins || 0, streak: mine.streak || 0, rank,
       rankDelta, myPts: mine.pts || 0,
@@ -488,6 +496,16 @@ export default function LiveApp() {
       const { error } = await supabase.from("profiles").update(clean).eq("id", uid);
       if (error) return toast(error.message);
       setEditingProfile(false); toast("Profile saved ✓"); refresh();
+    },
+    // claim a guest player as yourself: the RPC checks your profile phone matches
+    // the guest's (canonical form) and, if so, merges that guest INTO your player
+    // so its whole match history follows your account. The server rejects a
+    // mismatch — we surface that message so the user knows to ask the host.
+    claimPlayer: async (playerId) => {
+      const { error } = await supabase.rpc("claim_player", { p_player: playerId });
+      if (error) return toast(error.message);
+      toast("Claimed — that guest's match history is now yours 🎾");
+      refresh();
     },
     replayOnboarding: async () => { setSettingsOpen(false); await supabase.auth.signOut(); setOnboardingDone(false); },
     signOut: async () => { setSettingsOpen(false); await supabase.auth.signOut(); },
