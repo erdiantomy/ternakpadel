@@ -558,13 +558,19 @@ export default function LiveApp() {
         return toast("Host access required to create a session");
       }
       // reclub imports are deduped by source_ref (unique index). If this session
-      // was already imported, open the existing one instead of erroring out.
+      // was already imported, reuse that row instead of erroring on the unique
+      // key — reactivating it if it was cancelled, otherwise just opening it.
       if (extra.source_ref) {
         const { data: existing } = await supabase.from("events")
-          .select("id").eq("source_ref", extra.source_ref).maybeSingle();
+          .select("id,status").eq("source_ref", extra.source_ref).maybeSingle();
         if (existing) {
+          if (existing.status === "cancelled" || existing.status === "done") {
+            await supabase.from("events").update({ status: "open" }).eq("id", existing.id);
+            toast("Reactivated the previous reclub session — opening it");
+          } else {
+            toast("This reclub session already exists — opening it");
+          }
           setCreating(false); setTab("events"); setEventOpen(existing.id);
-          toast("This reclub session already exists — opening it");
           refresh();
           return;
         }
