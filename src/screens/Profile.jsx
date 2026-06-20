@@ -158,6 +158,7 @@ export function CreateSheet({ S, A }) {
   const [when, setWhen] = React.useState("");
   const [link, setLink] = React.useState("");
   const [busy, setBusy] = React.useState(false);
+  const [creatingBusy, setCreatingBusy] = React.useState(false);
   const [src, setSrc] = React.useState(null); // reclub provenance once generated
   const formats = ["Americano", "Mexicano", "KOTH", "Knockout", "League", "Mixicano"];
   const inputStyle = {
@@ -178,7 +179,8 @@ export function CreateSheet({ S, A }) {
     setSrc({ source: d.source || "reclub", source_ref: d.source_ref || null, source_url: d.source_url || link.trim(), fee: d.fee, desc: d.desc, players: Array.isArray(d.players) ? d.players : [] });
     A.toast(`Generated — ${(d.players || []).length} confirmed player(s) pulled in`);
   };
-  const create = () => {
+  const create = async () => {
+    if (creatingBusy) return; // guard against double-taps while the insert is in flight
     const extra = {};
     if (mode === "reclub" && src) {
       extra.source = src.source; extra.source_ref = src.source_ref; extra.source_url = src.source_url;
@@ -187,7 +189,9 @@ export function CreateSheet({ S, A }) {
       // confirmed reclub participants → placeholder players an admin can fulfill with real emails
       extra.roster = (src.players || []).map((n) => ({ name: n, email: null }));
     }
-    A.createEvent(name || ("New " + format), format, courts, max, when, extra);
+    setCreatingBusy(true);
+    try { await A.createEvent(name || ("New " + format), format, courts, max, when, extra); }
+    finally { setCreatingBusy(false); }
   };
   return (
     <Sheet open={S.creating} onClose={() => A.setCreating(false)} title="Add match">
@@ -224,7 +228,9 @@ export function CreateSheet({ S, A }) {
           ))}
         </Row>
         <Body size={11.5} dim>Smart matchmaking will balance pairings by ranking, partner history and social mixing.</Body>
-        <Btn primary full onClick={create}>Create &amp; open registration</Btn>
+        <Btn primary full onClick={create} style={{ opacity: creatingBusy ? 0.7 : 1, pointerEvents: creatingBusy ? "none" : "auto" }}>
+          {creatingBusy ? "Creating…" : "Create & open registration"}
+        </Btn>
       </Col>
     </Sheet>
   );
