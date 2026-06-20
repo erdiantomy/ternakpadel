@@ -46,15 +46,22 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
   const profilesById = React.useMemo(
     () => Object.fromEntries(db.profiles.map((p) => [p.id, p])), [db.profiles]);
 
-  // roster = every registered player for this event (payment is NOT required to
-  // run the session); only explicitly rejected requests are excluded.
-  const roster = db.eventPlayers
+  // name-only players (imported from a reclub roster or added by hand) live in
+  // config.lineup as { id, name }. They get a generated id so they can be placed
+  // in matches and tracked across rounds without needing a real account.
+  const lineup = Array.isArray(ev?.config?.lineup) ? ev.config.lineup : [];
+  const lineupNames = Object.fromEntries(lineup.map((p) => [p.id, p.name]));
+
+  // registered players (real accounts) for this event — payment not required
+  const registeredIds = db.eventPlayers
     .filter((ep) => ep.event_id === eventId && ep.status !== "rejected")
     .map((ep) => ep.player_id);
 
+  // the session roster = registered accounts + name-only lineup entries
+  const roster = [...new Set([...registeredIds, ...lineup.map((p) => p.id)])];
+
   const names = (ev?.config?.names) || {};
-  const nameOf = React.useCallback(
-    (id) => names[id] || firstName(profilesById[id]?.full_name), [names, profilesById]);
+  const nameOf = (id) => names[id] || lineupNames[id] || firstName(profilesById[id]?.full_name);
 
   const matches = db.matches
     .filter((m) => m.event_id === eventId)
@@ -104,15 +111,40 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
     if (await persistConfig(next)) { toast("Settings saved ✓"); refresh(); }
   };
 
-  // mark everyone going into the lineup as a paid participant so the whole app
-  // (roster lists, totals, resting, check-in) counts them — a self-run session
-  // doesn't gate on payment. Requires the organizer roster policy (0015).
+  // mark registered players going into the lineup as paid participants so the
+  // whole app counts them. Name-only lineup players have no account, so they are
+  // skipped here (event_players.player_id must reference a real profile).
   const ensurePaid = async (ids) => {
-    if (!ids.length) return;
+    const realIds = ids.filter((id) => profilesById[id]);
+    if (!realIds.length) return;
     const { error } = await supabase.from("event_players").upsert(
-      ids.map((id) => ({ event_id: eventId, player_id: id, status: "paid", paid: true })),
+      realIds.map((id) => ({ event_id: eventId, player_id: id, status: "paid", paid: true })),
       { onConflict: "event_id,player_id" });
     if (error) toast(error.message);
+  };
+
+  // import the reclub placeholder names (events.roster) into the session lineup
+  const importNames = async () => {
+    const ph = (Array.isArray(ev.roster) ? ev.roster : []).filter((s) => s && s.name);
+    if (!ph.length) return toast("No reclub names to import");
+    const have = new Set(lineup.map((p) => (p.name || "").toLowerCase()));
+    const additions = ph
+      .filter((s) => !have.has(s.name.toLowerCase()))
+      .map((s) => ({ id: crypto.randomUUID(), name: s.name }));
+    if (!additions.length) return toast("Already imported");
+    if (await persistConfig({ lineup: [...lineup, ...additions] })) {
+      toast("Imported " + additions.length + " players"); refresh();
+    }
+  };
+
+  const addPlayer = async (name) => {
+    const n = (name || "").trim();
+    if (!n) return;
+    if (await persistConfig({ lineup: [...lineup, { id: crypto.randomUUID(), name: n }] })) refresh();
+  };
+
+  const removePlayer = async (id) => {
+    if (await persistConfig({ lineup: lineup.filter((p) => p.id !== id) })) { toast("Removed"); refresh(); }
   };
 
   const insertRound = async (round, conf, baseIds) => {
@@ -270,15 +302,20 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
             </Col>
           </Card>
 
-          {/* players — rename + swap account in a slot */}
+          {/* players — import names, add by hand, rename + swap in a slot */}
           <SecHead right={roster.length + " players"}>Players</SecHead>
-          {roster.length === 0 && <Body size={12.5} dim>No players registered yet — anyone who requests or joins this event shows up here.</Body>}
+          {Array.isArray(ev.roster) && ev.roster.length > 0 && (
+            <Btn small full ghost onClick={importNames}>⬇ Import {ev.roster.length} players from reclub</Btn>
+          )}
+          {roster.length === 0 && <Body size={12.5} dim>No players yet — import from reclub above, or add players by name below.</Body>}
           <Col gap={7}>
             {roster.map((id) => (
               <PlayerRow key={id} id={id} name={nameOf(id)} profileName={profilesById[id]?.full_name}
-                onRename={(n) => renamePlayer(id, n)} />
+                onRename={(n) => renamePlayer(id, n)}
+                onRemove={lineupNames[id] !== undefined ? () => removePlayer(id) : undefined} />
             ))}
           </Col>
+          <AddPlayer onAdd={addPlayer} />
 
           {/* rounds & matches */}
           <SecHead right={lastRound ? "round " + lastRound : "none yet"}>Schedule</SecHead>
@@ -315,7 +352,7 @@ function NumInput({ value, onChange, min = 0 }) {
   );
 }
 
-function PlayerRow({ id, name, profileName, onRename }) {
+function PlayerRow({ id, name, profileName, onRename, onRemove }) {
   const [editing, setEditing] = React.useState(false);
   const [val, setVal] = React.useState(name);
   React.useEffect(() => { setVal(name); }, [name]);
@@ -335,8 +372,25 @@ function PlayerRow({ id, name, profileName, onRename }) {
         {editing
           ? <Btn small primary onClick={() => { onRename(val); setEditing(false); }}>Save</Btn>
           : <Btn small ghost onClick={() => setEditing(true)}>Rename</Btn>}
+        {!editing && onRemove && (
+          <button onClick={onRemove} title="Remove player"
+            style={{ background: "none", border: "none", color: "var(--text2)", fontSize: 18, cursor: "pointer", padding: "0 4px" }}>×</button>
+        )}
       </Row>
     </Card>
+  );
+}
+
+function AddPlayer({ onAdd }) {
+  const [val, setVal] = React.useState("");
+  const submit = () => { if (val.trim()) { onAdd(val); setVal(""); } };
+  return (
+    <Row gap={7}>
+      <input value={val} onChange={(e) => setVal(e.target.value)} placeholder="Add player by name"
+        onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+        style={{ flex: 1, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, color: "var(--text)", padding: "10px 12px", fontFamily: "var(--font-body)", fontSize: 13, outline: "none" }} />
+      <Btn small primary onClick={submit}>Add</Btn>
+    </Row>
   );
 }
 
