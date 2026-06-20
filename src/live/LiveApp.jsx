@@ -109,6 +109,7 @@ export default function LiveApp() {
   const [db, setDb] = React.useState({
     profile: null, profiles: [], events: [], eventPlayers: [], posts: [], likes: [],
     points: [], rankHistory: [], badgeCatalog: [], myBadges: [], matches: [], seasons: [],
+    playersPub: [],
   });
 
   const toastTimer = React.useRef(null);
@@ -133,6 +134,7 @@ export default function LiveApp() {
       { data: profile }, { data: profiles }, { data: events }, { data: eventPlayers },
       { data: posts }, { data: likes }, { data: points }, { data: rankHistory },
       { data: badgeCatalog }, { data: myBadges }, { data: matches }, { data: seasons },
+      { data: playersPub },
     ] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", uid).single(),
       supabase.from("profiles_public").select("id,full_name,username,is_host"),
@@ -148,6 +150,9 @@ export default function LiveApp() {
       supabase.from("player_badges").select("*").eq("player_id", uid),
       supabase.from("matches").select("*").order("court"),
       supabase.from("seasons").select("*").order("id", { ascending: false }),
+      // players registry (non-PII) — canonical display names for accounts AND
+      // guests, so guest history shows their real name in standings/leaderboards.
+      supabase.from("players_public").select("id,name,user_id"),
     ]);
     // matches load globally; drop any that belong to a demo event (not in the
     // visible events list) so a demo court can never leak into the player app.
@@ -158,6 +163,7 @@ export default function LiveApp() {
       badgeCatalog: badgeCatalog || [], myBadges: myBadges || [],
       matches: (matches || []).filter((m) => visibleEventIds.has(m.event_id)),
       seasons: seasons || [],
+      playersPub: playersPub || [],
     });
   }, []);
 
@@ -233,13 +239,27 @@ export default function LiveApp() {
     const profilesById = Object.fromEntries(db.profiles.map((p) => [p.id, p]));
     const season = db.seasons.find((s) => s.is_current) || db.seasons[0];
 
+    // players registry name resolution. A match participant id is either an
+    // account (profiles.id → players.user_id) or a guest (players.id). Resolve a
+    // display name through the registry first so guests and claimed players show
+    // their real name everywhere; fall back to the profile. (Aggregation keys
+    // stay in participant-id space — they feed the live pairing/endRound flow,
+    // which writes team_a/team_b; the DB maps those to player_id via trigger.)
+    const playerNameByUser = {}; const guestNameById = {};
+    for (const pl of db.playersPub) {
+      if (pl.user_id) playerNameByUser[pl.user_id] = pl.name;
+      else guestNameById[pl.id] = pl.name;
+    }
+    const regName = (pid) =>
+      playerNameByUser[pid] || guestNameById[pid] || profilesById[pid]?.full_name || "Player";
+
     const sortedPoints = db.points
       .filter((p) => !season || p.season_id === season.id)
       .sort((a, b) => b.pts - a.pts);
     const players = sortedPoints.map((p) => ({
       id: p.player_id,
-      name: profilesById[p.player_id]?.full_name || "Player",
-      initials: initialsOf(profilesById[p.player_id]?.full_name),
+      name: regName(p.player_id),
+      initials: initialsOf(regName(p.player_id)),
       pts: p.pts,
       me: p.player_id === uid,
     }));
@@ -324,8 +344,8 @@ export default function LiveApp() {
         .map(([player_id, pts]) => ({ player_id, pts }))
         .sort((a, b) => b.pts - a.pts);
       standings = standRows.slice(0, 8).map((r) => ({
-        name: profilesById[r.player_id]?.full_name || "Player",
-        ini: initialsOf(profilesById[r.player_id]?.full_name),
+        name: regName(r.player_id),
+        ini: initialsOf(regName(r.player_id)),
         pts: r.pts, me: r.player_id === uid,
       }));
       const roster = (paidByEvent[liveEvent.id] || []);
