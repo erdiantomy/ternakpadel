@@ -104,6 +104,17 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
     if (await persistConfig(next)) { toast("Settings saved ✓"); refresh(); }
   };
 
+  // mark everyone going into the lineup as a paid participant so the whole app
+  // (roster lists, totals, resting, check-in) counts them — a self-run session
+  // doesn't gate on payment. Requires the organizer roster policy (0015).
+  const ensurePaid = async (ids) => {
+    if (!ids.length) return;
+    const { error } = await supabase.from("event_players").upsert(
+      ids.map((id) => ({ event_id: eventId, player_id: id, status: "paid", paid: true })),
+      { onConflict: "event_id,player_id" });
+    if (error) toast(error.message);
+  };
+
   const insertRound = async (round, conf, baseIds) => {
     const { courts } = buildRound({ baseIds, standingsIds, config: conf, round, nameOf });
     if (!courts.length) { toast("Need at least 4 players to make a court"); return false; }
@@ -124,6 +135,7 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
     }
     // continue from the previous generation's players; round 1 uses the roster
     const baseIds = playedIds.length ? playedIds : roster;
+    await ensurePaid(baseIds);
     if (await insertRound(round, draft, baseIds)) { toast("Round " + round + " generated 🎾"); refresh(); }
   };
 
@@ -135,6 +147,7 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
     });
     const { error } = await supabase.from("matches").delete().eq("event_id", eventId);
     if (error) return toast(error.message);
+    await ensurePaid(roster);
     if (await insertRound(1, draft, roster)) { toast("Schedule regenerated from round 1"); refresh(); }
   };
 
