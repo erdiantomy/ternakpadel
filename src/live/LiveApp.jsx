@@ -51,11 +51,14 @@ function loadNav() {
   } catch { return { tab: "home", eventOpen: null }; }
 }
 
-// americano pairing: rank by event standings, groups of 4 → (1&4) vs (2&3)
-function nextPairings(standings, profilesById) {
+// americano pairing: rank by event standings, groups of 4 → (1&4) vs (2&3).
+// `maxCourts` caps how many matches run at once (venue court count); extra
+// players sit out.
+function nextPairings(standings, profilesById, maxCourts) {
   const ids = standings.map((s) => s.player_id);
+  const cap = Number.isFinite(maxCourts) && maxCourts > 0 ? maxCourts : Infinity;
   const courts = [];
-  for (let i = 0; i + 3 < ids.length; i += 4) {
+  for (let i = 0; i + 3 < ids.length && courts.length < cap; i += 4) {
     const g = ids.slice(i, i + 4);
     courts.push({ team_a: [g[0], g[3]], team_b: [g[1], g[2]] });
   }
@@ -330,7 +333,7 @@ export default function LiveApp() {
         .flatMap((m) => [...m.team_a, ...m.team_b]));
       const restingNames = roster.filter((ep) => !onCourt.has(ep.player_id))
         .map((ep) => firstName(profilesById[ep.player_id]?.full_name));
-      const pairing = nextPairings(standRows, profilesById);
+      const pairing = nextPairings(standRows, profilesById, liveEvent.courts);
       live = {
         eventId: liveEvent.id, title: liveEvent.title, venue: liveEvent.venue,
         status: liveEvent.status,
