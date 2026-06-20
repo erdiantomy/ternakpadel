@@ -553,9 +553,10 @@ export default function LiveApp() {
       return data;
     },
     createEvent: async (name, format, courts, max, when, extra = {}) => {
-      if (!(db.profile?.is_admin || db.profile?.is_host)) {
-        return toast("Only hosts and admins can create events");
-      }
+      // any signed-in player can create & run their own session — they become the
+      // organizer (created_by) with full control. RLS already gates writes to the
+      // event's own creator, so no admin/host flag is required.
+      if (!uid) return toast("Sign in to create a session");
       const TYPES = ["Americano", "Mexicano", "League", "King of the Hill", "Knockout", "Mixicano"];
       const type = TYPES.includes(format) ? format : (format === "KOTH" ? "King of the Hill" : "Americano");
       const startsAt = when ? new Date(when) : new Date(Date.now() + 86400000);
@@ -635,7 +636,7 @@ export default function LiveApp() {
           {tab === "rankings" && <RankingsScreen S={S} />}
           {tab === "profile" && <ProfileScreen S={S} A={A} />}
         </div>
-        <TabBar tab={tab} setTab={A.setTab} onFab={S.isManager ? () => setCreating(true) : undefined} />
+        <TabBar tab={tab} setTab={A.setTab} onFab={() => setCreating(true)} />
         <CreateSheet S={S} A={A} />
         <SettingsSheet open={settingsOpen} t={t} setT={setT} A={A} manager={S.isManager} />
         <EditProfileSheet open={editingProfile} S={S} A={A} />
