@@ -557,6 +557,18 @@ export default function LiveApp() {
       if (!(db.profile?.is_admin || db.profile?.is_host)) {
         return toast("Host access required to create a session");
       }
+      // reclub imports are deduped by source_ref (unique index). If this session
+      // was already imported, open the existing one instead of erroring out.
+      if (extra.source_ref) {
+        const { data: existing } = await supabase.from("events")
+          .select("id").eq("source_ref", extra.source_ref).maybeSingle();
+        if (existing) {
+          setCreating(false); setTab("events"); setEventOpen(existing.id);
+          toast("This reclub session already exists — opening it");
+          refresh();
+          return;
+        }
+      }
       const TYPES = ["Americano", "Mexicano", "League", "King of the Hill", "Knockout", "Mixicano"];
       const type = TYPES.includes(format) ? format : (format === "KOTH" ? "King of the Hill" : "Americano");
       const startsAt = when ? new Date(when) : new Date(Date.now() + 86400000);
@@ -570,7 +582,12 @@ export default function LiveApp() {
         roster: extra.roster || [],
         source: extra.source || null, source_ref: extra.source_ref || null, source_url: extra.source_url || null,
       });
-      if (error) return toast(error.message);
+      if (error) {
+        // 23505 = unique violation (e.g. a reclub session imported twice)
+        return toast(error.code === "23505"
+          ? "This reclub session was already created"
+          : error.message);
+      }
       setCreating(false); setTab("events");
       toast("Event created — registration open 📣");
       refresh();
