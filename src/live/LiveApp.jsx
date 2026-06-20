@@ -7,6 +7,7 @@ import { HomeScreen, EventsScreen, EventDetail } from "../screens/HomeEvents.jsx
 import { MatchesScreen, ScorerOverlay, RankingsScreen } from "../screens/LiveRank.jsx";
 import { ProfileScreen, ShareOverlay, CreateSheet, EditProfileSheet } from "../screens/Profile.jsx";
 import { HostConsole } from "../screens/Host.jsx";
+import { SessionManager } from "../screens/SessionManager.jsx";
 import { LiveOnboarding } from "./LiveOnboarding.jsx";
 import { CourtBadge } from "../components/BrandMark.jsx";
 import { VENUE_DEFAULT } from "../lib/courts.js";
@@ -100,6 +101,7 @@ export default function LiveApp() {
   const [matchResult, setMatchResult] = React.useState(null);
   const [onboardingDone, setOnboardingDone] = React.useState(false);
   const [editingProfile, setEditingProfile] = React.useState(false);
+  const [managing, setManaging] = React.useState(null); // eventId being run by the organizer
 
   const [db, setDb] = React.useState({
     profile: null, profiles: [], events: [], eventPlayers: [], posts: [], likes: [],
@@ -288,7 +290,13 @@ export default function LiveApp() {
       })
       .sort((a, b) => (b.live - a.live) || (b.today - a.today) || 0);
 
-    const liveEvent = db.events.find((e) => e.status === "live");
+    // an "active session" is any event that has matches and isn't finished —
+    // it no longer requires an admin to flip status to "live" (self-service).
+    const eventsWithMatches = new Set(db.matches.map((m) => m.event_id));
+    const liveEvent =
+      db.events.find((e) => e.status === "live") ||
+      db.events.find((e) => e.status === "paused" && eventsWithMatches.has(e.id)) ||
+      db.events.find((e) => eventsWithMatches.has(e.id) && e.status !== "done" && e.status !== "cancelled");
     let live = null;
     let standings = [];
     if (liveEvent) {
@@ -325,6 +333,7 @@ export default function LiveApp() {
       const pairing = nextPairings(standRows, profilesById);
       live = {
         eventId: liveEvent.id, title: liveEvent.title, venue: liveEvent.venue,
+        status: liveEvent.status,
         round, totalRounds: 7, courts,
         nextPairs: pairing.courts.length
           ? pairing.courts.map((c) => [c.team_a_names, c.team_b_names]) : undefined,
@@ -574,6 +583,17 @@ export default function LiveApp() {
     },
     exitHost: () => setMode("player"),
     finishOnboarding: () => setOnboardingDone(true),
+
+    // self-service organizer console for an event you manage (no admin needed)
+    manageSession: (id) => {
+      const e = db.events.find((x) => x.id === id);
+      if (!e) return;
+      if (!(e.created_by === uid || db.profile?.is_host || db.profile?.is_admin)) {
+        return toast("Only the organizer can manage this session");
+      }
+      setManaging(id);
+    },
+    closeManage: () => setManaging(null),
   }), [S, db, uid, toast, refresh]);
 
   // ---------- render ----------
@@ -621,6 +641,10 @@ export default function LiveApp() {
         <EditProfileSheet open={editingProfile} S={S} A={A} />
         <ScorerOverlay S={S} A={A} />
         <ShareOverlay S={S} A={A} />
+        {managing && (
+          <SessionManager eventId={managing} db={db} uid={uid}
+            refresh={refresh} toast={toast} onClose={() => setManaging(null)} />
+        )}
         {payBusy && (
           <div style={{ position: "absolute", inset: 0, zIndex: 95, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Body size={14} bold color="#fff" style={{ animation: "tpPulse 1.2s infinite" }}>Opening secure payment…</Body>
