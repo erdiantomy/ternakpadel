@@ -109,7 +109,7 @@ export default function LiveApp() {
   const [db, setDb] = React.useState({
     profile: null, profiles: [], events: [], eventPlayers: [], posts: [], likes: [],
     points: [], rankHistory: [], badgeCatalog: [], myBadges: [], matches: [], seasons: [],
-    playersPub: [],
+    playersPub: [], global: [],
   });
 
   const toastTimer = React.useRef(null);
@@ -134,7 +134,7 @@ export default function LiveApp() {
       { data: profile }, { data: profiles }, { data: events }, { data: eventPlayers },
       { data: posts }, { data: likes }, { data: points }, { data: rankHistory },
       { data: badgeCatalog }, { data: myBadges }, { data: matches }, { data: seasons },
-      { data: playersPub },
+      { data: playersPub }, { data: global },
     ] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", uid).single(),
       supabase.from("profiles_public").select("id,full_name,username,is_host"),
@@ -153,6 +153,9 @@ export default function LiveApp() {
       // players registry (non-PII) — canonical display names for accounts AND
       // guests, so guest history shows their real name in standings/leaderboards.
       supabase.from("players_public").select("id,name,user_id"),
+      // the single leaderboard source (0020): career totals by player_id, guests
+      // included — feeds the Season leaderboard + Profile stats.
+      supabase.from("global_leaderboard").select("*"),
     ]);
     // matches load globally; drop any that belong to a demo event (not in the
     // visible events list) so a demo court can never leak into the player app.
@@ -164,6 +167,7 @@ export default function LiveApp() {
       matches: (matches || []).filter((m) => visibleEventIds.has(m.event_id)),
       seasons: seasons || [],
       playersPub: playersPub || [],
+      global: global || [],
     });
   }, []);
 
@@ -237,7 +241,6 @@ export default function LiveApp() {
   const uid = session?.user?.id;
   const S = React.useMemo(() => {
     const profilesById = Object.fromEntries(db.profiles.map((p) => [p.id, p]));
-    const season = db.seasons.find((s) => s.is_current) || db.seasons[0];
 
     // players registry name resolution. A match participant id is either an
     // account (profiles.id → players.user_id) or a guest (players.id). Resolve a
@@ -253,18 +256,22 @@ export default function LiveApp() {
     const regName = (pid) =>
       playerNameByUser[pid] || guestNameById[pid] || profilesById[pid]?.full_name || "Player";
 
-    const sortedPoints = db.points
-      .filter((p) => !season || p.season_id === season.id)
-      .sort((a, b) => b.pts - a.pts);
-    const players = sortedPoints.map((p) => ({
-      id: p.player_id,
-      name: regName(p.player_id),
-      initials: initialsOf(regName(p.player_id)),
-      pts: p.pts,
-      me: p.player_id === uid,
+    // SINGLE leaderboard source (0020): global_leaderboard, keyed by canonical
+    // player_id and including guests, is THE Season + Profile number — identical
+    // to the public board / per-session standings (all sum match scores). The
+    // legacy win-bonus player_points is no longer read for any number.
+    const myPlayerId = (db.playersPub.find((pl) => pl.user_id === uid) || {}).id || uid;
+    const globalRows = (db.global || []).slice()
+      .sort((a, b) => b.pts - a.pts || (b.matches || 0) - (a.matches || 0));
+    const players = globalRows.map((r) => ({
+      id: r.player_id,
+      name: r.name || regName(r.player_id),
+      initials: initialsOf(r.name || regName(r.player_id)),
+      pts: r.pts,
+      me: r.player_id === myPlayerId,
     }));
-    const myIdx = sortedPoints.findIndex((p) => p.player_id === uid);
-    const mine = myIdx >= 0 ? sortedPoints[myIdx] : { pts: 0, matches: 0, wins: 0, streak: 0 };
+    const myIdx = globalRows.findIndex((r) => r.player_id === myPlayerId);
+    const mine = myIdx >= 0 ? globalRows[myIdx] : { pts: 0, matches: 0, wins: 0, streak: 0 };
     const rank = myIdx >= 0 ? myIdx + 1 : players.length + 1;
     const ranks = db.rankHistory.map((r) => r.rank);
     const rankDelta = ranks.length >= 2 ? Math.max(0, ranks[ranks.length - 2] - ranks[ranks.length - 1]) : 0;
@@ -421,9 +428,9 @@ export default function LiveApp() {
     return {
       me, events, joined, feed, timeline, live, standings, players, badges,
       seasons: db.seasons.map((s) => ({ id: s.id, name: s.name, rank: "—", now: s.is_current })),
-      matches: mine.matches, wins: mine.wins, streak: mine.streak, rank,
-      rankDelta, myPts: mine.pts,
-      winRate: mine.matches ? Math.round((mine.wins / mine.matches) * 100) : 0,
+      matches: mine.matches || 0, wins: mine.wins || 0, streak: mine.streak || 0, rank,
+      rankDelta, myPts: mine.pts || 0,
+      winRate: mine.matches ? Math.round(((mine.wins || 0) / mine.matches) * 100) : 0,
       rankHistory: rh, badgesGot: badges.filter((b) => b.got).length,
       checkedIn, scorer, share, creating, paying: payBusy, matchResult,
       shareLine: matchResult?.line, shareSub: matchResult?.sub,
