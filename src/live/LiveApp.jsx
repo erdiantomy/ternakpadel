@@ -7,6 +7,7 @@ import { HomeScreen, EventsScreen, EventDetail } from "../screens/HomeEvents.jsx
 import { MatchesScreen, ScorerOverlay, RankingsScreen } from "../screens/LiveRank.jsx";
 import { ProfileScreen, ShareOverlay, CreateSheet, EditProfileSheet } from "../screens/Profile.jsx";
 import { HostConsole } from "../screens/Host.jsx";
+import { SessionManager } from "../screens/SessionManager.jsx";
 import { LiveOnboarding } from "./LiveOnboarding.jsx";
 import { CourtBadge } from "../components/BrandMark.jsx";
 import { VENUE_DEFAULT } from "../lib/courts.js";
@@ -37,6 +38,18 @@ function timeAgo(iso) {
 
 const SETTINGS_DEFAULTS = { theme: "dark", accent: "#C4F22E", font: "brand", density: "comfy", homeLayout: "matchday" };
 const LS_KEY = "tp_live_settings";
+
+// remember which tab / event the user was on so a page refresh lands them back
+// where they were instead of bouncing to Home. (Supabase already persists the
+// auth session itself across refresh — only the in-app position was lost.)
+const NAV_KEY = "tp_live_nav";
+const TABS = ["home", "events", "matches", "rankings", "profile"];
+function loadNav() {
+  try {
+    const n = JSON.parse(localStorage.getItem(NAV_KEY) || "{}");
+    return { tab: TABS.includes(n.tab) ? n.tab : "home", eventOpen: n.eventOpen || null };
+  } catch { return { tab: "home", eventOpen: null }; }
+}
 
 // americano pairing: rank by event standings, groups of 4 → (1&4) vs (2&3)
 function nextPairings(standings, profilesById) {
@@ -77,8 +90,8 @@ export default function LiveApp() {
 
   const [session, setSession] = React.useState(undefined); // undefined = loading
   const [mode, setMode] = React.useState("player");
-  const [tab, setTab] = React.useState("home");
-  const [eventOpen, setEventOpen] = React.useState(null);
+  const [tab, setTab] = React.useState(() => loadNav().tab);
+  const [eventOpen, setEventOpen] = React.useState(() => loadNav().eventOpen);
   const [creating, setCreating] = React.useState(false);
   const [scorer, setScorer] = React.useState(false);
   const [share, setShare] = React.useState(null);
@@ -88,6 +101,7 @@ export default function LiveApp() {
   const [matchResult, setMatchResult] = React.useState(null);
   const [onboardingDone, setOnboardingDone] = React.useState(false);
   const [editingProfile, setEditingProfile] = React.useState(false);
+  const [managing, setManaging] = React.useState(null); // eventId being run by the organizer
 
   const [db, setDb] = React.useState({
     profile: null, profiles: [], events: [], eventPlayers: [], posts: [], likes: [],
@@ -145,6 +159,11 @@ export default function LiveApp() {
   }, []);
 
   React.useEffect(() => { if (session) refresh(); }, [session, refresh]);
+
+  // persist the current nav position so a refresh restores it (see NAV_KEY)
+  React.useEffect(() => {
+    try { localStorage.setItem(NAV_KEY, JSON.stringify({ tab, eventOpen })); } catch { /* ignore */ }
+  }, [tab, eventOpen]);
 
   // realtime: matches / rosters / feed changes push a debounced refresh
   React.useEffect(() => {
@@ -271,7 +290,13 @@ export default function LiveApp() {
       })
       .sort((a, b) => (b.live - a.live) || (b.today - a.today) || 0);
 
-    const liveEvent = db.events.find((e) => e.status === "live");
+    // an "active session" is any event that has matches and isn't finished —
+    // it no longer requires an admin to flip status to "live" (self-service).
+    const eventsWithMatches = new Set(db.matches.map((m) => m.event_id));
+    const liveEvent =
+      db.events.find((e) => e.status === "live") ||
+      db.events.find((e) => e.status === "paused" && eventsWithMatches.has(e.id)) ||
+      db.events.find((e) => eventsWithMatches.has(e.id) && e.status !== "done" && e.status !== "cancelled");
     let live = null;
     let standings = [];
     if (liveEvent) {
@@ -308,6 +333,7 @@ export default function LiveApp() {
       const pairing = nextPairings(standRows, profilesById);
       live = {
         eventId: liveEvent.id, title: liveEvent.title, venue: liveEvent.venue,
+        status: liveEvent.status,
         round, totalRounds: 7, courts,
         nextPairs: pairing.courts.length
           ? pairing.courts.map((c) => [c.team_a_names, c.team_b_names]) : undefined,
@@ -557,6 +583,17 @@ export default function LiveApp() {
     },
     exitHost: () => setMode("player"),
     finishOnboarding: () => setOnboardingDone(true),
+
+    // self-service organizer console for an event you manage (no admin needed)
+    manageSession: (id) => {
+      const e = db.events.find((x) => x.id === id);
+      if (!e) return;
+      if (!(e.created_by === uid || db.profile?.is_host || db.profile?.is_admin)) {
+        return toast("Only the organizer can manage this session");
+      }
+      setManaging(id);
+    },
+    closeManage: () => setManaging(null),
   }), [S, db, uid, toast, refresh]);
 
   // ---------- render ----------
@@ -604,6 +641,10 @@ export default function LiveApp() {
         <EditProfileSheet open={editingProfile} S={S} A={A} />
         <ScorerOverlay S={S} A={A} />
         <ShareOverlay S={S} A={A} />
+        {managing && (
+          <SessionManager eventId={managing} db={db} uid={uid}
+            refresh={refresh} toast={toast} onClose={() => setManaging(null)} />
+        )}
         {payBusy && (
           <div style={{ position: "absolute", inset: 0, zIndex: 95, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Body size={14} bold color="#fff" style={{ animation: "tpPulse 1.2s infinite" }}>Opening secure payment…</Body>

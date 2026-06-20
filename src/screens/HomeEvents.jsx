@@ -123,7 +123,7 @@ export function HomeScreen({ S, A, layout }) {
       <Row style={{ justifyContent: "space-between" }}>
         <Col gap={1}>
           <Body size={12.5} dim>{greeting()}</Body>
-          <Disp size={21}>{(S.me?.name || "Tomy").split(" ")[0]} 👋</Disp>
+          <Disp size={21}>{(S.me?.name || "Player").split(" ")[0]} 👋</Disp>
         </Col>
         <Row gap={8}>
           <button onClick={A.openSettings} title="Settings" style={{
@@ -137,7 +137,7 @@ export function HomeScreen({ S, A, layout }) {
             </svg>
           </button>
           <div style={{ position: "relative" }}>
-            <Ava ini={S.me?.initials || "TS"} d={36} ring />
+            <Ava ini={S.me?.initials || "P"} d={36} ring />
             <div style={{ position: "absolute", top: -2, right: -2, width: 9, height: 9, borderRadius: "50%", background: "var(--accent)" }} />
           </div>
         </Row>
@@ -266,6 +266,10 @@ export function EventDetail({ S, A, ev }) {
               <Body size={13} bold color="var(--accent-text)">Watch →</Body>
             </Row>
           </Card>
+        )}
+
+        {ev.canManage && (
+          <Btn primary full onClick={() => A.manageSession(ev.id)}>⚙ Manage session — generate, score, edit</Btn>
         )}
 
         {status === "none" && !ev.full && <Btn primary full onClick={() => A.requestJoin(ev.id)}>Request to join</Btn>}

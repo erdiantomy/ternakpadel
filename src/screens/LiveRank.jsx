@@ -1,6 +1,7 @@
 import React from "react";
 import { Disp, Body, Num, Card, Ava, Pill, Btn, Seg, Row, Col, SecHead } from "../components/atoms.jsx";
 import { VENUE_DEFAULT, courtName } from "../lib/courts.js";
+import { StatusBadge } from "./SessionManager.jsx";
 
 // Matches tab: live event (spectator courts + scorer mode + standings).
 
@@ -18,11 +19,9 @@ export function MatchesScreen({ S, A }) {
     <Col gap={12} style={{ padding: "calc(14px * var(--sp)) 16px 90px" }}>
       <Row style={{ justifyContent: "space-between" }}>
         <Disp size={24}>Matches</Disp>
-        <Row gap={6}>
-          <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--danger)", animation: "tpPulse 1.2s infinite" }} />
-          <Body size={12.5} bold>LIVE · Round {live.round}/{live.totalRounds || 7}</Body>
-        </Row>
+        <StatusBadge status={live.status} />
       </Row>
+      <Body size={12.5} bold dim style={{ marginTop: -6 }}>Round {live.round}/{live.totalRounds || 7}</Body>
       <Body size={13} dim style={{ marginTop: -8 }}>{live.title || "Friday Night Americano"} · {live.venue || VENUE_DEFAULT}</Body>
 
       {live.courts.map((c, i) => (
