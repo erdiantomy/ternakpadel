@@ -532,8 +532,10 @@ export default function LiveApp() {
       const live = S.live;
       if (!live) return;
       const pairing = live._pairing;
-      await supabase.from("matches").update({ status: "done", finished_at: new Date().toISOString() })
-        .eq("event_id", live.eventId).eq("round", live.round).eq("status", "live");
+      const { error } = await supabase.rpc("finalize_round", {
+        p_event_id: live.eventId, p_round: live.round,
+      });
+      if (error) return toast(error.message);
       if (pairing && pairing.courts.length) {
         await supabase.from("matches").insert(pairing.courts.map((c, i) => ({
           event_id: live.eventId, round: live.round + 1, court: i + 1,
