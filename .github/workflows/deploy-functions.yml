@@ -23,9 +23,19 @@ jobs:
           version: latest
       - name: Deploy create-invoice
         run: supabase functions deploy create-invoice --project-ref "$PROJECT_REF"
+      - name: Deploy check-payment
+        run: supabase functions deploy check-payment --project-ref "$PROJECT_REF"
       - name: Deploy xendit-webhook
         run: supabase functions deploy xendit-webhook --project-ref "$PROJECT_REF" --no-verify-jwt
       - name: Deploy send-otp-whatsapp
         run: supabase functions deploy send-otp-whatsapp --project-ref "$PROJECT_REF" --no-verify-jwt
+      - name: Deploy fonnte-webhook
+        run: supabase functions deploy fonnte-webhook --project-ref "$PROJECT_REF" --no-verify-jwt
       - name: Deploy provision-player
         run: supabase functions deploy provision-player --project-ref "$PROJECT_REF"
+      - name: Deploy import-reclub
+        run: supabase functions deploy import-reclub --project-ref "$PROJECT_REF"
+      - name: Deploy import-reclub-player
+        run: supabase functions deploy import-reclub-player --project-ref "$PROJECT_REF"
+      - name: Deploy sync-reclub-all
+        run: supabase functions deploy sync-reclub-all --project-ref "$PROJECT_REF" --no-verify-jwt
