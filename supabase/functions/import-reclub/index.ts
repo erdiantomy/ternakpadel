@@ -3,6 +3,7 @@
 // No reclub API is used — only the public page. SSRF-guarded to reclub.co.
 //
 // Deploy: supabase functions deploy import-reclub
+//         (also auto-deployed from main by .github/workflows/deploy-functions.yml)
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
