@@ -57,6 +57,15 @@ function findWrap(node: any, depth = 0, seen = new Set()): any {
   return null;
 }
 
+// Unpaired surrogates (e.g. half of an emoji left behind by a code-unit slice)
+// serialize to a \udXXX escape that PostgREST's JSON parser rejects, failing
+// the client's event insert with PGRST102 "Empty or invalid json". Array.from
+// iterates by code point, so a valid emoji arrives as a 2-unit string and only
+// a LONE surrogate matches the single-unit test below.
+const scrub = (s: string) => Array.from(s).filter((c) => !/^[\uD800-\uDFFF]$/.test(c)).join("");
+// truncate by characters (code points), never through a surrogate pair
+const cut = (s: string, n: number) => Array.from(scrub(s)).slice(0, n).join("");
+
 // confirmed participants (reclub participation status === 1), resolved to display names
 function confirmedPlayers(meet: any, usersMap: any): string[] {
   if (!meet || !Array.isArray(meet.participants) || !usersMap) return [];
@@ -64,7 +73,7 @@ function confirmedPlayers(meet: any, usersMap: any): string[] {
   for (const p of meet.participants) {
     if (!p || p.status !== 1) continue; // 0=organizer, 1=confirmed, 2=waitlist, 3=invited
     const u = usersMap[p.referenceId] || usersMap[String(p.referenceId)] || {};
-    const nm = (u.name || u.username || "").toString().trim();
+    const nm = scrub((u.name || u.username || "").toString()).trim();
     if (nm) out.push(nm);
   }
   return out;
@@ -172,10 +181,10 @@ Deno.serve(async (req) => {
       if (typeof meet.feeAmount === "number" && meet.feeAmount > 0) out.fee = meet.feeAmount;
       if (typeof meet.numPlayers === "number" && meet.numPlayers > 0) out.max = meet.numPlayers;
       const venueName = meet?.venue?.name || meet?.location?.name;
-      if (venueName) out.venue = /toms/i.test(venueName) ? "TOMS PADEL" : String(venueName);
+      if (venueName) out.venue = /toms/i.test(venueName) ? "TOMS PADEL" : scrub(String(venueName));
       const fmt = meet?.sportFormat?.name;
       if (fmt) out.type = mapType(String(fmt)) || out.type;
-      if (meet.notes && typeof meet.notes === "string" && meet.notes.trim()) bits.unshift(meet.notes.trim().slice(0, 140));
+      if (meet.notes && typeof meet.notes === "string" && meet.notes.trim()) bits.unshift(cut(meet.notes.trim(), 140));
     }
     // pull a prize line from the caption for the description
     const prize = (caption.match(/(?:prize|cash)[^\d]*([\d.,]{5,})/i) || [])[1];
