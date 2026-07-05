@@ -1,5 +1,6 @@
 import React from "react";
 import { supabase } from "../lib/supabase.js";
+import { cleanCut } from "../lib/format.js";
 import { tpTheme } from "../theme.js";
 import { TabBar, Toast, Body } from "../components/atoms.jsx";
 import { SettingsSheet } from "../components/SettingsSheet.jsx";
@@ -431,7 +432,7 @@ export default function LiveApp() {
         .replace(/^https?:\/\/(www\.)?instagram\.com\//i, "").replace(/^@/, "").replace(/\/$/, "");
       const clean = {
         full_name: (patch.full_name || "").trim() || db.profile?.full_name || "Player",
-        bio: (patch.bio || "").slice(0, 280),
+        bio: cleanCut(patch.bio || "", 280),
         instagram: ig || null,
       };
       const { error } = await supabase.from("profiles").update(clean).eq("id", uid);
@@ -582,13 +583,13 @@ export default function LiveApp() {
       const type = TYPES.includes(format) ? format : (format === "KOTH" ? "King of the Hill" : "Americano");
       const startsAt = when ? new Date(when) : new Date(Date.now() + 86400000);
       const { error } = await supabase.from("events").insert({
-        title: name, type, courts, max_players: max,
+        title: cleanCut(name), type, courts, max_players: max,
         starts_at: startsAt.toISOString(),
-        venue: extra.venue || VENUE_DEFAULT, fee: typeof extra.fee === "number" ? extra.fee : 100000,
+        venue: cleanCut(extra.venue || VENUE_DEFAULT), fee: typeof extra.fee === "number" ? extra.fee : 100000,
         pts: type === "League" ? 25 : 10,
-        description: extra.desc || "Smart matchmaking will balance pairings as players register.",
+        description: cleanCut(extra.desc || "Smart matchmaking will balance pairings as players register."),
         created_by: uid,
-        roster: extra.roster || [],
+        roster: (extra.roster || []).map((s) => ({ ...s, name: cleanCut(s.name) })),
         source: extra.source || null, source_ref: extra.source_ref || null, source_url: extra.source_url || null,
       });
       if (error) {
