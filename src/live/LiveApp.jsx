@@ -7,7 +7,6 @@ import { SettingsSheet } from "../components/SettingsSheet.jsx";
 import { HomeScreen, EventsScreen, EventDetail } from "../screens/HomeEvents.jsx";
 import { MatchesScreen, ScorerOverlay, RankingsScreen } from "../screens/LiveRank.jsx";
 import { ProfileScreen, ShareOverlay, CreateSheet, EditProfileSheet } from "../screens/Profile.jsx";
-import { HostConsole } from "../screens/Host.jsx";
 import { SessionManager } from "../screens/SessionManager.jsx";
 import { LiveOnboarding } from "./LiveOnboarding.jsx";
 import { CourtBadge } from "../components/BrandMark.jsx";
@@ -52,29 +51,6 @@ function loadNav() {
   } catch { return { tab: "home", eventOpen: null }; }
 }
 
-// americano pairing: rank by event standings, groups of 4 → (1&4) vs (2&3).
-// `maxCourts` caps how many matches run at once (venue court count); extra
-// players sit out.
-function nextPairings(standings, profilesById, maxCourts) {
-  const ids = standings.map((s) => s.player_id);
-  const cap = Number.isFinite(maxCourts) && maxCourts > 0 ? maxCourts : Infinity;
-  const courts = [];
-  for (let i = 0; i + 3 < ids.length && courts.length < cap; i += 4) {
-    const g = ids.slice(i, i + 4);
-    courts.push({ team_a: [g[0], g[3]], team_b: [g[1], g[2]] });
-  }
-  const resting = ids.slice(courts.length * 4);
-  const nameOf = (id) => firstName(profilesById[id]?.full_name);
-  return {
-    courts: courts.map((c) => ({
-      ...c,
-      team_a_names: c.team_a.map(nameOf).join(" / "),
-      team_b_names: c.team_b.map(nameOf).join(" / "),
-    })),
-    resting: resting.map(nameOf),
-  };
-}
-
 // ---------- root ----------
 
 export default function LiveApp() {
@@ -93,7 +69,6 @@ export default function LiveApp() {
   });
 
   const [session, setSession] = React.useState(undefined); // undefined = loading
-  const [mode, setMode] = React.useState("player");
   const [tab, setTab] = React.useState(() => loadNav().tab);
   const [eventOpen, setEventOpen] = React.useState(() => loadNav().eventOpen);
   const [creating, setCreating] = React.useState(false);
@@ -262,7 +237,9 @@ export default function LiveApp() {
     const joined = {};
     for (const id in myEpByEvent) if (myEpByEvent[id].paid || myEpByEvent[id].status === "paid") joined[id] = true;
     const personOf = (id) => ({ id, name: profilesById[id]?.full_name || "Player", initials: initialsOf(profilesById[id]?.full_name), me: id === uid });
-    const canManageEvent = (e) => !!uid && (e.created_by === uid || db.profile?.is_host || db.profile?.is_admin);
+    // only the event's creator (or a superadmin) — RLS enforces the same, so a
+    // wider gate would just offer buttons whose writes silently fail
+    const canManageEvent = (e) => !!uid && (e.created_by === uid || db.profile?.is_admin);
 
     const events = db.events
       .filter((e) => e.status !== "done")
@@ -329,22 +306,10 @@ export default function LiveApp() {
         ini: initialsOf(profilesById[r.player_id]?.full_name),
         pts: r.pts, me: r.player_id === uid,
       }));
-      const roster = (paidByEvent[liveEvent.id] || []);
-      const onCourt = new Set(evMatches.filter((m) => m.round === round && m.status === "live")
-        .flatMap((m) => [...m.team_a, ...m.team_b]));
-      const restingNames = roster.filter((ep) => !onCourt.has(ep.player_id))
-        .map((ep) => firstName(profilesById[ep.player_id]?.full_name));
-      const pairing = nextPairings(standRows, profilesById, liveEvent.courts);
       live = {
         eventId: liveEvent.id, title: liveEvent.title, venue: liveEvent.venue,
         status: liveEvent.status,
         round, totalRounds: 7, courts,
-        nextPairs: pairing.courts.length
-          ? pairing.courts.map((c) => [c.team_a_names, c.team_b_names]) : undefined,
-        resting: restingNames.length ? restingNames.join(", ") : null,
-        checkedIn: roster.filter((ep) => ep.checked_in).length,
-        totalPlayers: roster.length,
-        _pairing: pairing,
       };
     }
 
@@ -503,15 +468,6 @@ export default function LiveApp() {
       setDb((prev) => ({ ...prev, matches: prev.matches.map((m) => m.id === c.id ? { ...m, [col]: val } : m) }));
       await supabase.from("matches").update({ [col]: val }).eq("id", c.id);
     },
-    scoreCourt: async (matchId, side, d) => {
-      const m = db.matches.find((x) => x.id === matchId);
-      if (!m) return;
-      const col = side === "A" ? "score_a" : "score_b";
-      const val = Math.max(0, m[col] + d);
-      setDb((prev) => ({ ...prev, matches: prev.matches.map((x) => x.id === matchId ? { ...x, [col]: val } : x) }));
-      await supabase.from("matches").update({ [col]: val }).eq("id", matchId);
-    },
-
     endMatch: async () => {
       const c = S.live?.courts.find((x) => x.yours);
       if (!c) return;
@@ -528,23 +484,6 @@ export default function LiveApp() {
       refresh();
     },
     closeScorer: () => { setScorer(false); setMatchResult(null); },
-
-    endRound: async () => {
-      const live = S.live;
-      if (!live) return;
-      const pairing = live._pairing;
-      await supabase.from("matches").update({ status: "done", finished_at: new Date().toISOString() })
-        .eq("event_id", live.eventId).eq("round", live.round).eq("status", "live");
-      if (pairing && pairing.courts.length) {
-        await supabase.from("matches").insert(pairing.courts.map((c, i) => ({
-          event_id: live.eventId, round: live.round + 1, court: i + 1,
-          team_a: c.team_a, team_b: c.team_b,
-          team_a_names: c.team_a_names, team_b_names: c.team_b_names,
-        })));
-      }
-      toast("Round complete — new pairings sent to every phone 📣");
-      refresh();
-    },
 
     openShare: (kind) => setShare(kind),
     closeShare: () => setShare(null),
@@ -603,20 +542,14 @@ export default function LiveApp() {
       refresh();
     },
 
-    enterHost: () => {
-      const isHost = db.profile?.is_admin || db.profile?.is_host;
-      if (!isHost) { toast("Host access required — ask an admin"); return; }
-      if (!S.live) { toast("No live event to host right now"); return; }
-      setSettingsOpen(false); setMode("host");
-    },
-    exitHost: () => setMode("player"),
     finishOnboarding: () => setOnboardingDone(true),
 
-    // self-service organizer console for an event you manage (no admin needed)
+    // self-service organizer console — only the event's creator (or an admin);
+    // RLS blocks anyone else's writes, so the gate matches what would succeed
     manageSession: (id) => {
       const e = db.events.find((x) => x.id === id);
       if (!e) return;
-      if (!(e.created_by === uid || db.profile?.is_host || db.profile?.is_admin)) {
+      if (!(e.created_by === uid || db.profile?.is_admin)) {
         return toast("Only the organizer can manage this session");
       }
       setManaging(id);
@@ -635,15 +568,6 @@ export default function LiveApp() {
   }
 
   const needsOnboarding = !session || (db.profile && !db.profile.full_name && !onboardingDone);
-
-  if (mode === "host" && session) {
-    return (
-      <div style={{ ...theme, height: "100dvh", background: "var(--bg)", position: "relative", overflowX: "auto" }}>
-        <HostConsole S={S} A={A} />
-        <Toast msg={toastMsg} />
-      </div>
-    );
-  }
 
   const ev = S.events.find((e) => e.id === eventOpen);
 
@@ -665,7 +589,7 @@ export default function LiveApp() {
         </div>
         <TabBar tab={tab} setTab={A.setTab} onFab={S.isManager ? () => setCreating(true) : undefined} />
         <CreateSheet S={S} A={A} />
-        <SettingsSheet open={settingsOpen} t={t} setT={setT} A={A} manager={S.isManager} />
+        <SettingsSheet open={settingsOpen} t={t} setT={setT} A={A} />
         <EditProfileSheet open={editingProfile} S={S} A={A} />
         <ScorerOverlay S={S} A={A} />
         <ShareOverlay S={S} A={A} />

@@ -11,6 +11,16 @@ idempotency, SSRF guards, RLS design and schema assumptions all check out.
 The items below are what's worth noting — ordered by severity within each
 section, with a consolidated priority list at the end.
 
+> **Status update (post-review fixes):** items 1, 2, 5, 6, 7 and 9 of the
+> priority list are FIXED (nightly-sync clobber, renamePlayer wipe,
+> joined-count double count, fonnte-webhook fail-open, admin `paused` +
+> self-de-admin guard, season rollover via `0016_season_rollover.sql`).
+> Item 4 resolved by tightening the UI to creator-or-admin; item 3 resolved
+> by removing the Host console entirely (§4.2's `endRound`/`nextPairings`
+> deleted with it). Still open: §1.3 payment races, §1.4 small notes,
+> tie-goes-to-team-A, and the §4.5 cleanup items (dead `PaySheet`/prototype
+> `Onboarding`, non-filtering leaderboard filters, scoring read-modify-write).
+
 ---
 
 ## 1. Edge Functions (`supabase/functions/*/index.ts`)

@@ -18,7 +18,7 @@ const fmt = (iso, withTime = true) =>
   iso ? new Date(iso).toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", ...(withTime ? { hour: "2-digit", minute: "2-digit" } : {}) }) : "—";
 
 const EVENT_TYPES = ["Americano", "Mexicano", "League", "King of the Hill", "Knockout", "Mixicano"];
-const EVENT_STATUS = ["open", "live", "done", "cancelled"];
+const EVENT_STATUS = ["open", "live", "paused", "done", "cancelled"];
 const PAY_COLORS = { paid: "#46d369", pending: "#e6a700", expired: "#888", failed: "#ff5c5c" };
 // Demo Mode lets an admin run the whole flow by hand against real data (scores
 // feed the real leaderboard). On by default; set VITE_DEMO_MODE="false" to hide.
@@ -234,6 +234,9 @@ export default function AdminConsole() {
   };
 
   const toggle = async (p, field) => {
+    if (field === "is_admin" && p.id === session.user.id && p.is_admin) {
+      return toast("You can't remove your own admin access");
+    }
     const { error } = await supabase.from("profiles").update({ [field]: !p[field] }).eq("id", p.id);
     if (error) return toast(error.message);
     toast(p.full_name + ": " + field + " " + (!p[field] ? "on" : "off")); load();

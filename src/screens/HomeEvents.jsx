@@ -42,7 +42,7 @@ function MatchDayHero({ ev, joined, onOpen, onCheckin, checkedIn }) {
       <Col gap={8} style={{ position: "relative" }}>
         <Row style={{ justifyContent: "space-between" }}>
           <Body size={11.5} bold color="var(--accent-text)" style={{ letterSpacing: "0.08em" }}>{ev.today ? "TODAY" : ev.day} · {ev.time || "19:00"}</Body>
-          <Body size={11.5} dim>{ev.joined + (joined ? 1 : 0)}/{ev.max} players</Body>
+          <Body size={11.5} dim>{ev.joined}/{ev.max} players</Body>
         </Row>
         <Disp size={22}>{ev.title}</Disp>
         <Body size={13} dim>{ev.venue} · {ev.courts} courts · +{ev.pts} pts</Body>
@@ -51,7 +51,7 @@ function MatchDayHero({ ev, joined, onOpen, onCheckin, checkedIn }) {
             {(ev.avatars || ["RW", "BN", "SK", "AH"]).slice(0, 4).map((i, n) => (
               <div key={i + n} style={{ marginLeft: n ? -10 : 0 }}><Ava ini={i} d={28} /></div>
             ))}
-            <Body size={12} dim style={{ marginLeft: 7 }}>+{Math.max(0, ev.joined - 4 + (joined ? 1 : 0))}</Body>
+            <Body size={12} dim style={{ marginLeft: 7 }}>+{Math.max(0, ev.joined - 4)}</Body>
           </Row>
           {joined
             ? <Btn small primary={!checkedIn} ghost={checkedIn} onClick={(e) => { e.stopPropagation(); onCheckin(); }}>{checkedIn ? "✓ Checked in" : "Check in"}</Btn>
@@ -176,9 +176,9 @@ export function EventsScreen({ S, A }) {
                 <Body size={12} dim>{e.venue.split(",")[0]} · {rupiah(e.fee)} · +{e.pts} pts</Body>
                 <Row gap={6} style={{ marginTop: 3 }}>
                   <div style={{ flex: 1, height: 4, borderRadius: 3, background: "var(--surface2)", overflow: "hidden" }}>
-                    <div style={{ width: Math.round(((e.joined + (S.joined[e.id] ? 1 : 0)) / e.max) * 100) + "%", height: "100%", background: e.full ? "var(--danger)" : "var(--accent)" }} />
+                    <div style={{ width: Math.round((e.joined / e.max) * 100) + "%", height: "100%", background: e.full ? "var(--danger)" : "var(--accent)" }} />
                   </div>
-                  <Body size={11} dim>{e.joined + (S.joined[e.id] ? 1 : 0)}/{e.max}</Body>
+                  <Body size={11} dim>{e.joined}/{e.max}</Body>
                 </Row>
               </Col>
               {S.joined[e.id] && <Pill small on>✓</Pill>}

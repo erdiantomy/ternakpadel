@@ -86,6 +86,7 @@ async function fetchEvent(url: string) {
   if (nm) { try { meet = findMeet(unflatten(JSON.parse(nm[1]))); } catch (_) { /* fall back */ } }
   const caption = (meet?.name || titleTag || "").toString();
   const out: any = parseCaption(caption);
+  out.from_meet = !!meet; // caption-only parses are too fuzzy to overwrite DB fields with
   const bits: string[] = [];
   if (meet) {
     if (typeof meet.startDatetime === "number") out.starts_iso = new Date(meet.startDatetime * 1000).toISOString();
@@ -95,7 +96,9 @@ async function fetchEvent(url: string) {
     const venueName = meet?.venue?.name || meet?.location?.name;
     if (venueName) out.venue = /toms/i.test(venueName) ? "TOMS PADEL" : String(venueName);
     const fmt = meet?.sportFormat?.name;
-    if (fmt) out.type = mapType(String(fmt)) || out.type;
+    // only trust type when reclub's own format field mapped — parseCaption's
+    // "Americano" fallback would otherwise reset a manually-set type nightly
+    if (fmt && mapType(String(fmt))) { out.type = mapType(String(fmt)); out.type_from_format = true; }
     if (meet.isCancelled === true) out.cancelled = true;
   }
   const prize = (caption.match(/(?:prize|cash)[^\d]*([\d.,]{5,})/i) || [])[1];
@@ -134,25 +137,31 @@ Deno.serve(async (req) => {
       .select("id,source_url,status,title,type,venue,fee,courts,max_players,description,starts_at")
       .eq("source", "reclub").eq("status", "open").gt("starts_at", new Date().toISOString());
 
-    let synced = 0, failed = 0, cancelled = 0;
+    let synced = 0, failed = 0, cancelled = 0, skipped = 0;
     const errors: string[] = [];
     for (const e of events ?? []) {
       if (!e.source_url) continue;
       try {
         const d = await fetchEvent(e.source_url);
+        // No structured payload (reclub markup changed / page is an interstitial):
+        // leave the event untouched rather than overwrite it with fuzzy-scraped junk.
+        if (!d.from_meet) { skipped++; continue; }
         const upd: any = {
-          title: d.title || e.title, type: d.type || e.type, venue: d.venue || e.venue,
+          title: d.title || e.title, venue: d.venue || e.venue,
           fee: typeof d.fee === "number" ? d.fee : e.fee,
           courts: d.courts || e.courts, max_players: d.max || e.max_players,
           description: d.desc ?? e.description,
         };
+        // parseCaption always falls back to "Americano" — only sync type when
+        // it came from reclub's own format field, so manual edits survive.
+        if (d.type_from_format) upd.type = d.type;
         if (d.starts_iso) upd.starts_at = d.starts_iso;
         if (d.cancelled) { upd.status = "cancelled"; cancelled++; }
         await admin.from("events").update(upd).eq("id", e.id);
         synced++;
       } catch (err) { failed++; if (errors.length < 5) errors.push(String(err)); }
     }
-    return Response.json({ ok: true, scanned: (events ?? []).length, synced, cancelled, failed, errors }, { headers: cors });
+    return Response.json({ ok: true, scanned: (events ?? []).length, synced, cancelled, skipped, failed, errors }, { headers: cors });
   } catch (e) {
     return Response.json({ error: String(e) }, { status: 500, headers: cors });
   }
