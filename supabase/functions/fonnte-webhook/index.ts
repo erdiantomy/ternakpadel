@@ -40,9 +40,10 @@ Deno.serve(async (req) => {
   // Health check / Fonnte's "test" GET.
   if (req.method !== "POST") return new Response("fonnte-webhook ok");
 
-  // Auth: require the shared secret in the query string.
+  // Auth: require the shared secret in the query string. Fail CLOSED when the
+  // secret isn't configured — otherwise anyone could post to this endpoint.
   const url = new URL(req.url);
-  if (SECRET && url.searchParams.get("secret") !== SECRET) {
+  if (!SECRET || url.searchParams.get("secret") !== SECRET) {
     return new Response("forbidden", { status: 403 });
   }
 

@@ -243,7 +243,7 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
     const nextNames = { ...names, [id]: name.trim() };
     if (!name.trim()) delete nextNames[id];
     await persistConfig({ names: nextNames });
-    const resolve = (pid) => nextNames[pid] || firstName(profilesById[pid]?.full_name);
+    const resolve = (pid) => nextNames[pid] || lineupNames[pid] || firstName(profilesById[pid]?.full_name);
     const mine = matches.filter((m) => m.team_a.includes(id) || m.team_b.includes(id));
     await Promise.all(mine.map((m) => supabase.from("matches").update({
       team_a_names: m.team_a.map(resolve).join(" / "),
