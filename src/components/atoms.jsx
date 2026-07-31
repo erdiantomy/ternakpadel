@@ -34,7 +34,11 @@ export function Num({ size = 22, children, style, color }) {
 
 export function Card({ children, style, onClick, accent, pad }) {
   return (
-    <div onClick={onClick} style={{
+    <div onClick={onClick}
+      role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(e); } } : undefined}
+      className={onClick ? "tp-press" : undefined}
+      style={{
       background: accent ? "var(--accent-soft)" : "var(--surface)",
       border: "1px solid " + (accent ? "var(--accent)" : "var(--line)"),
       borderRadius: "var(--radius)", padding: pad != null ? pad : "calc(14px * var(--sp))",
@@ -61,7 +65,8 @@ export function Ava({ ini, d = 36, ring }) {
 
 export function Pill({ children, on, onClick, small }) {
   return (
-    <button onClick={onClick} className={onClick ? "tp-press" : undefined} aria-pressed={on != null ? !!on : undefined} style={{
+    <button onClick={onClick} className={onClick ? "tp-press" : undefined} aria-pressed={on != null ? !!on : undefined}
+      tabIndex={onClick ? undefined : -1} style={{
       border: "1px solid " + (on ? "var(--accent)" : "var(--line)"),
       background: on ? "var(--accent-soft)" : "transparent",
       color: on ? "var(--text)" : "var(--text2)",
@@ -188,8 +193,11 @@ export function Seg({ options, value, onChange }) {
   );
 }
 
-export function Row({ children, gap = 10, style, onClick }) {
-  return <div onClick={onClick} style={{ display: "flex", alignItems: "center", gap, cursor: onClick ? "pointer" : undefined, ...style }}>{children}</div>;
+export function Row({ children, gap = 10, style, onClick, ariaLabel }) {
+  return <div onClick={onClick}
+    role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined} aria-label={ariaLabel}
+    onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(e); } } : undefined}
+    style={{ display: "flex", alignItems: "center", gap, cursor: onClick ? "pointer" : undefined, ...style }}>{children}</div>;
 }
 
 export function Col({ children, gap = 10, style }) {
@@ -314,21 +322,29 @@ export function ErrorState({ offline, onRetry }) {
   );
 }
 
-// Bottom sheet modal
+// Bottom sheet modal — stays mounted briefly on close so it can animate out
 export function Sheet({ open, onClose, children, title }) {
-  if (!open) return null;
+  const [shown, setShown] = React.useState(open);
+  const closing = shown && !open;
+  React.useEffect(() => {
+    if (open) { setShown(true); return; }
+    if (!shown) return;
+    const t = setTimeout(() => setShown(false), 190);
+    return () => clearTimeout(t);
+  }, [open, shown]);
+  if (!shown) return null;
   return (
     <div onClick={onClose} style={{
       position: "absolute", inset: 0, zIndex: 60,
       background: "rgba(0,0,0,0.55)", backdropFilter: "blur(2px)",
       display: "flex", flexDirection: "column", justifyContent: "flex-end",
-      animation: "tpFade .18s ease",
+      animation: closing ? "tpFade .19s ease reverse forwards" : "tpFade .18s ease",
     }}>
-      <div onClick={(e) => e.stopPropagation()} style={{
+      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
         background: "var(--bg)", borderRadius: "24px 24px 0 0",
         borderTop: "1.5px solid var(--cage)",
         padding: "10px 18px calc(26px + env(safe-area-inset-bottom))",
-        animation: "tpUp .25s cubic-bezier(.2,.9,.3,1)",
+        animation: closing ? "tpDown .19s ease forwards" : "tpUp .25s cubic-bezier(.2,.9,.3,1)",
         boxShadow: "0 -18px 50px rgba(5,8,22,0.5)",
         maxHeight: "85%", overflowY: "auto",
       }}>
@@ -373,7 +389,7 @@ export function TabBar({ tab, setTab, onFab }) {
       {items.map(([id, label, d]) => {
         const active = tab === id;
         return (
-          <button key={id} onClick={() => setTab(id)} style={{
+          <button key={id} onClick={() => setTab(id)} aria-current={active ? "page" : undefined} className="tp-press" style={{
             background: "none", border: "none", cursor: "pointer", padding: "2px 8px",
             position: "relative",
             display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
@@ -392,7 +408,7 @@ export function TabBar({ tab, setTab, onFab }) {
           </button>
         );
       })}
-      {onFab && <button onClick={onFab} title="Create match" style={{
+      {onFab && <button onClick={onFab} title="Create match" aria-label="Create match" className="tp-press" style={{
         position: "absolute", right: 14, top: -26, width: 54, height: 54, borderRadius: "50%",
         background: "var(--accent)", border: "3px solid var(--bg-solid)", cursor: "pointer",
         boxShadow: "0 8px 22px var(--accent-soft), 0 4px 14px rgba(5,8,22,0.5)",

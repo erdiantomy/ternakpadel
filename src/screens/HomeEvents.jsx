@@ -17,7 +17,7 @@ export function FeedItem({ post, onLike }) {
         <Body size={16}>{kindIcon}</Body>
       </Row>
       <Row gap={16} style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line)" }}>
-        <Row gap={5} onClick={() => onLike(post.id)}>
+        <Row gap={5} onClick={() => onLike(post.id)} ariaLabel={post.liked ? "Unlike" : "Like"}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill={post.liked ? "var(--accent)" : "none"} stroke={post.liked ? "var(--accent)" : "var(--text2)"} strokeWidth="2">
             <path d="M12 21s-7.5-4.7-9.7-9A5.6 5.6 0 0 1 12 6.6 5.6 5.6 0 0 1 21.7 12c-2.2 4.3-9.7 9-9.7 9Z" />
           </svg>

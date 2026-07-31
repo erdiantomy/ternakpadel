@@ -16,12 +16,22 @@ button:disabled { opacity: 0.45; cursor: default; }
 /* keyboard focus ring in the accent color; never shown for pointer clicks */
 :focus-visible { outline: 2px solid var(--ring, #C4F22E); outline-offset: 2px; }
 
-/* lime selection — the brand's energy color */
-::selection { background: #C4F22E; color: #0A0F26; }
+/* selection follows the chosen accent (falls back to brand lime) */
+::selection { background: var(--accent, #C4F22E); color: var(--accent-ink, #0A0F26); }
+
+/* honor the user's reduced-motion preference — kills pulses/shimmers/slides */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
 
 @keyframes tpFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes tpShimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @keyframes tpUp { from { transform: translateY(26px); opacity: 0.4; } to { transform: translateY(0); opacity: 1; } }
+@keyframes tpDown { from { transform: translateY(0); opacity: 1; } to { transform: translateY(26px); opacity: 0; } }
 @keyframes tpPop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @keyframes tpPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 /* a soft tennis-lime breathing glow for primary calls-to-action */

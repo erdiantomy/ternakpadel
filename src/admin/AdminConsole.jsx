@@ -745,7 +745,7 @@ export default function AdminConsole() {
 
 // ---------- little styled helpers ----------
 const btn = (bg) => ({ background: bg, border: "1px solid var(--line)", borderRadius: 9, padding: "9px 14px", color: "var(--text)", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 14, display: "flex", alignItems: "center" });
-const inp = { background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 9, padding: "9px 11px", color: "var(--text)", fontSize: 14, fontFamily: "var(--font-body)", outline: "none" };
+const inp = { background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 9, padding: "9px 11px", color: "var(--text)", fontSize: 14, fontFamily: "var(--font-body)" };
 const card = { background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12, padding: 16, marginBottom: 18 };
 const trS = { borderBottom: "1px solid var(--line)" };
 const tdS = { padding: "10px 12px", fontSize: 13, whiteSpace: "nowrap", verticalAlign: "middle" };

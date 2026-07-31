@@ -580,6 +580,19 @@ export default function LiveApp() {
   // ---------- render ----------
   const dark = t.theme === "dark";
   const theme = tpTheme(t);
+  const letterbox = dark ? "#070B1C" : "#E5EAF7";
+
+  // keep the page chrome in sync with the chosen theme: overscroll areas
+  // (body) and the browser/status bar (meta theme-color) were fixed dark
+  React.useEffect(() => {
+    document.body.style.background = letterbox;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#0A0F26" : "#F2F5FC");
+  }, [dark, letterbox]);
+
+  // each tab is its own surface: reset scroll when switching (it used to
+  // carry the previous tab's scroll position over)
+  const scrollRef = React.useRef(null);
+  React.useEffect(() => { scrollRef.current?.scrollTo?.(0, 0); }, [tab, eventOpen]);
 
   if (session === undefined) {
     return <div style={{ ...theme, height: "100dvh", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -592,14 +605,14 @@ export default function LiveApp() {
   const ev = S.events.find((e) => e.id === eventOpen);
 
   return (
-    <div style={{ minHeight: "100dvh", background: dark ? "#070B1C" : "#E5EAF7", display: "flex", justifyContent: "center", transition: "background .3s" }}>
+    <div style={{ minHeight: "100dvh", background: letterbox, display: "flex", justifyContent: "center", transition: "background .3s" }}>
       <div style={{
         ...theme, background: "var(--bg)", width: "100%", maxWidth: 480, height: "100dvh",
         display: "flex", flexDirection: "column", position: "relative", overflow: "hidden",
         boxShadow: "0 0 0 1px var(--line)",
       }}>
         <div style={{ height: "env(safe-area-inset-top)", flex: "0 0 auto" }} />
-        <div style={{ flex: 1, overflowY: "auto", position: "relative" }}>
+        <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", position: "relative", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}>
           {session && loadState === "loading" && <SkeletonScreen />}
           {session && loadState === "error" && (
             <ErrorState offline={!navigator.onLine}
