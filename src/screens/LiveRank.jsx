@@ -1,5 +1,5 @@
 import React from "react";
-import { Disp, Body, Num, Card, Ava, Btn, Row, Col, SecHead, MicroLabel, LiveDot, HeaderPill, LeaderboardRow, EmptyState } from "../components/atoms.jsx";
+import { Disp, Body, Num, Card, Ava, Btn, Row, Col, SecHead, MicroLabel, LiveDot, HeaderPill, LeaderboardRow, EmptyState, Icon } from "../components/atoms.jsx";
 import { VENUE_DEFAULT, courtName } from "../lib/courts.js";
 import { StatusBadge } from "./SessionManager.jsx";
 
@@ -51,7 +51,7 @@ export function MatchesScreen({ S, A }) {
         ))}
       </Card>
       <Btn small full ghost onClick={() => window.open("/board/" + live.eventId, "_blank")}>
-        🔗 Open shareable leaderboard
+        <Icon name="link" size={13} /> Open shareable leaderboard
       </Btn>
     </Col>
   );

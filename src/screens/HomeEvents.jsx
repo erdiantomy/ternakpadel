@@ -1,6 +1,6 @@
 import React from "react";
 import { rupiah } from "../lib/format.js";
-import { Disp, Body, Num, Card, Ava, Pill, Btn, Row, Col, SecHead, MicroLabel, LiveDot, HeaderPill, StatTile, EmptyState } from "../components/atoms.jsx";
+import { Disp, Body, Num, Card, Ava, Pill, Btn, Row, Col, SecHead, MicroLabel, LiveDot, HeaderPill, StatTile, EmptyState, Icon } from "../components/atoms.jsx";
 
 export function FeedItem({ post, onLike }) {
   const kindIcon = { result: "🎾", rank: "📈", badge: "🏅", join: "📅", announcement: "📣" }[post.kind] || "🎾";
@@ -213,7 +213,7 @@ export function EventDetail({ S, A, ev }) {
       }}>
         <Row style={{ justifyContent: "space-between" }}>
           <HeaderPill onClick={A.back}>← Back</HeaderPill>
-          <HeaderPill onClick={() => A.shareEvent(ev.id)}>🔗 Share</HeaderPill>
+          <HeaderPill onClick={() => A.shareEvent(ev.id)}><Icon name="link" size={13} /> Share</HeaderPill>
         </Row>
         <Col gap={3}>
           <Row gap={6}>
@@ -279,12 +279,12 @@ export function EventDetail({ S, A, ev }) {
         )}
 
         {ev.canManage && (
-          <Btn primary full onClick={() => A.manageSession(ev.id)}>⚙ Manage session — generate, score, edit</Btn>
+          <Btn primary full onClick={() => A.manageSession(ev.id)}><Icon name="settings" size={14} /> Manage session — generate, score, edit</Btn>
         )}
 
         {status === "none" && !ev.full && <Btn primary full onClick={() => A.requestJoin(ev.id)}>Request to join</Btn>}
         {status === "none" && ev.full && <Btn full ghost onClick={() => A.toast("Event full — we'll WhatsApp you if a spot opens")}>Event full</Btn>}
-        {status === "requested" && <Btn full ghost onClick={() => A.toast("Waiting for the host to approve your request")}>⏳ Waiting for host approval</Btn>}
+        {status === "requested" && <Btn full ghost onClick={() => A.toast("Waiting for the host to approve your request")}><Icon name="clock" size={14} /> Waiting for host approval</Btn>}
         {status === "approved" && <Btn primary full onClick={() => A.openPay(ev.id)}>Approved — Pay {rupiah(ev.fee)}</Btn>}
         {status === "paid" && <Btn full ghost onClick={() => A.toast("See you on court! 🎾")}>✓ You're in — view schedule</Btn>}
         {status === "rejected" && <Btn full ghost onClick={() => A.toast("Your request wasn't approved this time")}>Request not approved</Btn>}

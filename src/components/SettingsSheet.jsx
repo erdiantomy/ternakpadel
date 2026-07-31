@@ -1,6 +1,6 @@
 import React from "react";
 import { TP_FONTS, TP_ACCENTS } from "../theme.js";
-import { Pill, Btn, Seg, Row, Col, Sheet, MicroLabel as Label } from "./atoms.jsx";
+import { Pill, Btn, Seg, Row, Col, Sheet, Icon, MicroLabel as Label } from "./atoms.jsx";
 
 // In-app settings — replaces the prototype's floating Tweaks panel.
 // Exposes the same options: theme, accent, type pairing, home order, density,
@@ -50,7 +50,7 @@ export function SettingsSheet({ open, t, setT, A }) {
         <Col gap={7}>
           <Label>Help</Label>
           <a href="/GUIDE.pdf" download style={{ textDecoration: "none" }}>
-            <Btn full ghost>📄 Download Guide (PDF)</Btn>
+            <Btn full ghost><Icon name="doc" size={14} /> Download Guide (PDF)</Btn>
           </a>
         </Col>
       </Col>

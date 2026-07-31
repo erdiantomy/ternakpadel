@@ -2,6 +2,7 @@ import React from "react";
 import { supabase } from "../lib/supabase.js";
 import { tpTheme } from "../theme.js";
 import { rupiah, initialsOf } from "../lib/format.js";
+import { Icon } from "../components/atoms.jsx";
 import { CourtBadge } from "../components/BrandMark.jsx";
 import { VENUE_DEFAULT, courtName } from "../lib/courts.js";
 
@@ -399,9 +400,9 @@ export default function AdminConsole() {
   const paidByEvent = (id) => db.eventPlayers.filter((ep) => ep.event_id === id && ep.paid).length;
 
   const TABS = [
-    ["overview", "Overview", "📊"], ["members", "Members", "👥"], ["payments", "Payments", "💳"],
-    ["events", "Events", "🎾"], ["matches", "Matches", "🏸"], ["content", "Content", "📣"],
-    ...(DEMO_ENABLED ? [["demo", "Demo", "🧪"]] : []),
+    ["overview", "Overview", "chart"], ["members", "Members", "users"], ["payments", "Payments", "card"],
+    ["events", "Events", "calendar"], ["matches", "Matches", "courts"], ["content", "Content", "megaphone"],
+    ...(DEMO_ENABLED ? [["demo", "Demo", "flask"]] : []),
   ];
 
   const demoEvents = db.events.filter((e) => e.is_demo);
@@ -420,12 +421,12 @@ export default function AdminConsole() {
           <button key={k} onClick={() => setTab(k)} style={{
             ...btn(tab === k ? "var(--accent)" : "transparent"), justifyContent: "flex-start", gap: 9,
             color: tab === k ? "var(--accent-ink)" : "var(--text)", fontWeight: tab === k ? 700 : 500,
-          }}><span>{ic}</span>{label}</button>
+          }}><Icon name={ic} size={15} />{label}</button>
         ))}
         <div style={{ marginTop: "auto", fontSize: 12, color: "var(--text2)" }}>
           <div style={{ marginBottom: 8 }}>{me.full_name || session.user.email}</div>
           <a href="/" style={{ color: "var(--text2)", display: "block", marginBottom: 6 }}>← Back to app</a>
-          <a href="/GUIDE.pdf" download style={{ color: "var(--text2)", display: "block", marginBottom: 6 }}>📄 Download Guide</a>
+          <a href="/GUIDE.pdf" download style={{ color: "var(--text2)", display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}><Icon name="doc" size={13} /> Download Guide</a>
           <button onClick={() => supabase.auth.signOut()} style={{ ...btn("var(--surface)"), padding: "7px 10px", fontSize: 12 }}>Sign out</button>
         </div>
       </aside>

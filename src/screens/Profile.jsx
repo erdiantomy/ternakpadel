@@ -1,5 +1,5 @@
 import React from "react";
-import { Disp, Body, Num, Card, Ava, Pill, Btn, Row, Col, SecHead, Spark, Sheet, Input, MicroLabel, StatTile } from "../components/atoms.jsx";
+import { Disp, Body, Num, Card, Ava, Pill, Btn, Row, Col, SecHead, Spark, Sheet, Input, MicroLabel, StatTile, Icon } from "../components/atoms.jsx";
 
 // Profile / career screen, share-card overlay, create-match sheet.
 
@@ -16,13 +16,13 @@ export function ProfileScreen({ S, A }) {
           <Body size={12.5} dim>{me.user} · {me.skill} · {me.side} side · member since {me.memberSince}</Body>
         </Col>
         <Btn small ghost onClick={A.openEditProfile}>Edit</Btn>
-        <Btn small ghost ariaLabel="Settings" onClick={A.openSettings}>⚙</Btn>
+        <Btn small ghost ariaLabel="Settings" onClick={A.openSettings}><Icon name="settings" size={16} /></Btn>
       </Row>
 
       {me.bio && <Body size={13} style={{ marginTop: -4 }}>{me.bio}</Body>}
       {me.instagram && (
         <Row gap={14} style={{ marginTop: -2 }}>
-          <a href={`https://instagram.com/${me.instagram}`} target="_blank" rel="noreferrer" style={{ color: "var(--accent-text)", fontSize: 12.5, fontWeight: 700, textDecoration: "none" }}>📷 @{me.instagram}</a>
+          <a href={`https://instagram.com/${me.instagram}`} target="_blank" rel="noreferrer" style={{ color: "var(--accent-text)", fontSize: 12.5, fontWeight: 700, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="camera" size={13} /> @{me.instagram}</a>
         </Row>
       )}
 
@@ -52,7 +52,7 @@ export function ProfileScreen({ S, A }) {
           const got = b.got || (b.id === "b4" && S.streak >= 10);
           return (
             <Card key={b.id} pad={10} style={{ minWidth: 86, textAlign: "center", opacity: got ? 1 : 0.45 }} accent={got}>
-              <div style={{ fontSize: 22 }}>{got ? b.icon : "🔒"}</div>
+              <div style={{ fontSize: 22, height: 26, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text2)" }}>{got ? b.icon : <Icon name="lock" size={19} />}</div>
               <Body size={11} bold style={{ marginTop: 4 }}>{b.name}</Body>
               {b.sub && <Body size={9.5} dim>{b.sub}</Body>}
             </Card>
@@ -206,13 +206,13 @@ export function CreateSheet({ S, A }) {
     <Sheet open={S.creating} onClose={() => A.setCreating(false)} title="Add match">
       <Col gap={12}>
         <Row gap={7}>
-          <Pill small on={mode === "manual"} onClick={() => setMode("manual")}>✏️ Manual</Pill>
-          <Pill small on={mode === "reclub"} onClick={() => setMode("reclub")}>🔗 From reclub link</Pill>
+          <Pill small on={mode === "manual"} onClick={() => setMode("manual")}><Icon name="pencil" size={12} /> Manual</Pill>
+          <Pill small on={mode === "reclub"} onClick={() => setMode("reclub")}><Icon name="link" size={12} /> From reclub link</Pill>
         </Row>
         {mode === "reclub" && (
           <Col gap={8}>
             <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="Paste reclub event link (https://reclub.co/…)" />
-            <Btn ghost full disabled={busy} onClick={generate}>{busy ? "Generating…" : "⚡ Generate from reclub"}</Btn>
+            <Btn ghost full disabled={busy} onClick={generate}>{busy ? "Generating…" : <React.Fragment><Icon name="zap" size={14} /> Generate from reclub</React.Fragment>}</Btn>
             <Body size={11.5} dim>Auto-fills the details below and pulls in the confirmed participants as placeholder players — an admin can fill real emails later.</Body>
           </Col>
         )}

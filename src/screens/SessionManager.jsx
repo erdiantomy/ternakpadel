@@ -1,6 +1,6 @@
 import React from "react";
 import { supabase } from "../lib/supabase.js";
-import { Disp, Body, Num, Card, Ava, Pill, Btn, Seg, Row, Col, SecHead, MicroLabel, LiveDot, HeaderPill, LeaderboardRow, Stepper, Input } from "../components/atoms.jsx";
+import { Disp, Body, Num, Card, Ava, Pill, Btn, Seg, Row, Col, SecHead, MicroLabel, LiveDot, HeaderPill, LeaderboardRow, Stepper, Input, Icon } from "../components/atoms.jsx";
 import { courtName } from "../lib/courts.js";
 import { errMsg, initialsOf, firstName } from "../lib/format.js";
 import { sessionConfig, buildRound, matchComplete, sessionStandings } from "../lib/session.js";
@@ -313,7 +313,7 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
                 hi={locked && i === 0} bold={i === 0} />
             ))}
           </Card>
-          <Btn small full ghost onClick={shareBoard}>🔗 Share {locked ? "final" : "live"} leaderboard</Btn>
+          <Btn small full ghost onClick={shareBoard}><Icon name="link" size={13} /> Share {locked ? "final" : "live"} leaderboard</Btn>
 
           {/* format settings — editable after generate */}
           <SecHead>Format settings</SecHead>
@@ -349,7 +349,7 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
               </Row>
               <Row gap={8}>
                 <Btn small full ghost onClick={saveSettings}>Save settings</Btn>
-                <Btn small full danger onClick={regenerateAll}>Apply & regenerate ⚠</Btn>
+                <Btn small full danger onClick={regenerateAll}>Apply & regenerate <Icon name="warning" size={13} /></Btn>
               </Row>
               <Body size={11} dim>"Save settings" keeps existing matches. "Apply & regenerate" rebuilds the schedule and clears scores.</Body>
             </Col>
@@ -358,7 +358,7 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
           {/* players — import names, add by hand, rename + swap in a slot */}
           <SecHead right={roster.length + " players"}>Players</SecHead>
           {Array.isArray(ev.roster) && ev.roster.length > 0 && (
-            <Btn small full ghost onClick={importNames}>⬇ Import {ev.roster.length} players from reclub</Btn>
+            <Btn small full ghost onClick={importNames}><Icon name="download" size={13} /> Import {ev.roster.length} players from reclub</Btn>
           )}
           {roster.length === 0 && <Body size={12.5} dim>No players yet — import from reclub above, or add players by name below.</Body>}
           <Col gap={7}>
@@ -409,10 +409,10 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
                     ? "Every match hit its target. Finish to lock the final leaderboard — it then counts toward the club board."
                     : "Some matches haven't reached their target yet — finish anyway, or keep scoring."}
                 </Body>
-                <Btn primary full onClick={finishSession}>🏁 Finish session & lock leaderboard</Btn>
+                <Btn primary full onClick={finishSession}><Icon name="flag" size={14} /> Finish session & lock leaderboard</Btn>
                 <Row gap={8}>
                   <Btn small full ghost onClick={generateNext}>+ Extra round {lastRound + 1}</Btn>
-                  <Btn small full ghost onClick={shareBoard}>🔗 Share leaderboard</Btn>
+                  <Btn small full ghost onClick={shareBoard}><Icon name="link" size={13} /> Share leaderboard</Btn>
                 </Row>
               </Col>
             </Card>
@@ -420,9 +420,9 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
           {locked && (
             <Card pad={14}>
               <Col gap={10}>
-                <Body size={13.5} bold>Session finished 🔒</Body>
+                <Body size={13.5} bold style={{ display: "flex", alignItems: "center", gap: 6 }}>Session finished <Icon name="lock" size={13} /></Body>
                 <Body size={12} dim>The leaderboard above is final and counts toward the club (all-time) board. Share it, or set status back to Live to reopen scoring.</Body>
-                <Btn primary full onClick={shareBoard}>🔗 Share final leaderboard</Btn>
+                <Btn primary full onClick={shareBoard}><Icon name="link" size={13} /> Share final leaderboard</Btn>
               </Col>
             </Card>
           )}
