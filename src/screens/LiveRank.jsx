@@ -1,5 +1,5 @@
 import React from "react";
-import { Disp, Body, Num, Card, Ava, Pill, Btn, Seg, Row, Col, SecHead, MicroLabel, LiveDot, HeaderPill, LeaderboardRow } from "../components/atoms.jsx";
+import { Disp, Body, Num, Card, Ava, Btn, Row, Col, SecHead, MicroLabel, LiveDot, HeaderPill, LeaderboardRow, EmptyState } from "../components/atoms.jsx";
 import { VENUE_DEFAULT, courtName } from "../lib/courts.js";
 import { StatusBadge } from "./SessionManager.jsx";
 
@@ -32,12 +32,12 @@ export function MatchesScreen({ S, A }) {
           </Row>
           <Col gap={6}>
             <Row style={{ justifyContent: "space-between" }}>
-              <Body size={14} bold={c.a >= c.b}>{c.teamA}</Body>
-              <Num size={22} color={c.a >= c.b ? "var(--text)" : "var(--text2)"}>{c.a}</Num>
+              <Body size={14} bold={c.a >= c.b} style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.teamA}</Body>
+              <Num size={22} style={{ flex: "0 0 auto" }} color={c.a >= c.b ? "var(--text)" : "var(--text2)"}>{c.a}</Num>
             </Row>
             <Row style={{ justifyContent: "space-between" }}>
-              <Body size={14} bold={c.b > c.a}>{c.teamB}</Body>
-              <Num size={22} color={c.b > c.a ? "var(--text)" : "var(--text2)"}>{c.b}</Num>
+              <Body size={14} bold={c.b > c.a} style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.teamB}</Body>
+              <Num size={22} style={{ flex: "0 0 auto" }} color={c.b > c.a ? "var(--text)" : "var(--text2)"}>{c.b}</Num>
             </Row>
           </Col>
         </Card>
@@ -117,8 +117,7 @@ export function ScorerOverlay({ S, A }) {
 // ---------- Rankings ----------
 
 export function RankingsScreen({ S }) {
-  const [period, setPeriod] = React.useState("Season");
-  const [div, setDiv] = React.useState("All");
+  const season = (S.seasons || []).find((s) => s.now);
   const sorted = S.players.slice().sort((a, b) => b.pts - a.pts);
   const hasPodium = sorted.length >= 3;
   const podium = sorted.slice(0, 3);
@@ -127,13 +126,14 @@ export function RankingsScreen({ S }) {
   const hs = [64, 84, 52];
   return (
     <Col gap={12} style={{ padding: "calc(14px * var(--sp)) 16px 90px" }}>
-      <Disp size={24}>Leaderboard</Disp>
-      <Seg options={["Weekly", "Monthly", "Season", "All time"]} value={period} onChange={setPeriod} />
-      <div style={{ display: "flex", gap: 7, overflowX: "auto" }}>
-        {["All", "Men", "Women", "Beginner", "Intermediate", "Advanced"].map((d) => (
-          <Pill key={d} small on={div === d} onClick={() => setDiv(d)}>{d}</Pill>
-        ))}
-      </div>
+      <Row style={{ justifyContent: "space-between", alignItems: "baseline" }}>
+        <Disp size={24}>Leaderboard</Disp>
+        {season && <MicroLabel>{season.name}</MicroLabel>}
+      </Row>
+      {sorted.length === 0 && (
+        <EmptyState icon="🏆" title="No ranked players yet"
+          sub="Play a session — points land here the moment a match finishes." />
+      )}
       {hasPodium && <Row gap={10} style={{ alignItems: "flex-end", justifyContent: "center", padding: "8px 0 2px" }}>
         {order.map((p, i) => (
           <Col key={p.id} gap={5} style={{ alignItems: "center", flex: 1 }}>
@@ -149,14 +149,20 @@ export function RankingsScreen({ S }) {
           </Col>
         ))}
       </Row>}
-      <Card pad={8}>
-        {rest.map((p, i) => (
-          <LeaderboardRow key={p.id} rank={i + (hasPodium ? 4 : 1)} ini={p.initials} ring={p.me}
-            name={p.name + (p.me ? " (you)" : "")} pts={p.pts} hi={p.me} bold={p.me} topAccent={!hasPodium}
-            extra={p.me && S.rankDelta > 0 ? <Body size={12} bold color="var(--success)">↑{S.rankDelta}</Body> : null} />
-        ))}
-      </Card>
-      <Body size={11.5} dim style={{ textAlign: "center" }}>ELO-weighted · {period === "Season" ? "Season 3 · resets 1 Sep" : period}</Body>
+      {rest.length > 0 && (
+        <Card pad={8}>
+          {rest.map((p, i) => (
+            <LeaderboardRow key={p.id} rank={i + (hasPodium ? 4 : 1)} ini={p.initials} ring={p.me}
+              name={p.name + (p.me ? " (you)" : "")} pts={p.pts} hi={p.me} bold={p.me} topAccent={!hasPodium}
+              extra={p.me && S.rankDelta > 0 ? <Body size={12} bold color="var(--success)">↑{S.rankDelta}</Body> : null} />
+          ))}
+        </Card>
+      )}
+      {sorted.length > 0 && (
+        <Body size={11.5} dim style={{ textAlign: "center" }}>
+          Points accumulate across every session{season ? " · " + season.name : ""}
+        </Body>
+      )}
     </Col>
   );
 }

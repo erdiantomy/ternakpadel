@@ -19,7 +19,7 @@ const fmt = (iso, withTime = true) =>
 
 const EVENT_TYPES = ["Americano", "Mexicano", "League", "King of the Hill", "Knockout", "Mixicano"];
 const EVENT_STATUS = ["open", "live", "paused", "done", "cancelled"];
-const PAY_COLORS = { paid: "#46d369", pending: "#e6a700", expired: "#888", failed: "#ff5c5c" };
+const PAY_COLORS = { paid: "var(--success)", pending: "var(--warning)", expired: "var(--text2)", failed: "var(--danger)" };
 // Demo Mode lets an admin run the whole flow by hand against real data (scores
 // feed the real leaderboard). On by default; set VITE_DEMO_MODE="false" to hide.
 const DEMO_ENABLED = import.meta.env.VITE_DEMO_MODE !== "false";
@@ -725,7 +725,7 @@ export default function AdminConsole() {
                         ) : <b>{m.score_a}–{m.score_b}</b>}
                       </Td>
                       <Td>{m.team_b_names}</Td>
-                      <Td><span style={{ color: m.status === "live" ? "#46d369" : "var(--text2)", fontWeight: 700 }}>{m.status}</span></Td>
+                      <Td><span style={{ color: m.status === "live" ? "var(--success)" : "var(--text2)", fontWeight: 700 }}>{m.status}</span></Td>
                       <Td>{m.status === "live" && <button onClick={() => finishMatch(m.id)} style={{ ...btn("var(--accent)"), padding: "5px 10px", fontSize: 12 }}>Finish</button>}</Td>
                     </tr>
                   ))}
@@ -750,12 +750,12 @@ const card = { background: "var(--surface)", border: "1px solid var(--line)", bo
 const trS = { borderBottom: "1px solid var(--line)" };
 const tdS = { padding: "10px 12px", fontSize: 13, whiteSpace: "nowrap", verticalAlign: "middle" };
 const stepBtn = { width: 26, height: 26, borderRadius: 7, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--text)", cursor: "pointer", fontSize: 15, lineHeight: 1, fontWeight: 700 };
-const demoPill = { fontSize: 11, fontWeight: 700, letterSpacing: 0.4, color: "#e6a700", border: "1px solid #e6a70055", background: "#e6a7001a", borderRadius: 999, padding: "3px 8px" };
+const demoPill = { fontSize: 11, fontWeight: 700, letterSpacing: 0.4, color: "var(--warning)", border: "1px solid color-mix(in oklab, var(--warning) 34%, transparent)", background: "color-mix(in oklab, var(--warning) 10%, transparent)", borderRadius: 999, padding: "3px 8px" };
 
 function Td({ children }) { return <td style={tdS}>{children}</td>; }
 function Table({ head, children }) {
   return (
-    <div style={{ ...card, padding: 0, overflowX: "auto" }}>
+    <div className="tp-scroll" style={{ ...card, padding: 0, overflowX: "auto" }}>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead><tr>{head.map((h) => <th key={h} style={{ ...tdS, textAlign: "left", color: "var(--text2)", fontWeight: 600, borderBottom: "1px solid var(--line)" }}>{h}</th>)}</tr></thead>
         <tbody>{children}</tbody>

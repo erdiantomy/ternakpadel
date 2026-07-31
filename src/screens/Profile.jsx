@@ -34,18 +34,20 @@ export function ProfileScreen({ S, A }) {
       </Row>
 
       <Card>
-        <SecHead right="Season 3">Ranking history</SecHead>
+        <SecHead right={(seasons.find((s) => s.now) || {}).name}>Ranking history</SecHead>
         <div style={{ marginTop: 8 }}>
           <Spark vals={S.rankHistory.map((v) => -v)} w={330} h={64} stroke={2.5} style={{ width: "100%", height: 64 }} />
         </div>
         <Row style={{ justifyContent: "space-between", marginTop: 4 }}>
-          <Body size={11} dim>S1 · #19</Body>
-          <Body size={11} dim>S2 · #11</Body>
+          <Body size={11} dim>start · #{S.rankHistory[0]}</Body>
           <Body size={11} bold color="var(--accent-text)">now · #{S.rank}</Body>
         </Row>
       </Card>
 
       <SecHead right={S.badgesGot + "/" + badges.length}>Badges</SecHead>
+      {badges.length === 0 && (
+        <Body size={12.5} dim>Badges you earn appear here — your first session unlocks Rookie.</Body>
+      )}
       <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
         {badges.map((b) => {
           const got = b.got || (b.id === "b4" && S.streak >= 10);
@@ -60,6 +62,9 @@ export function ProfileScreen({ S, A }) {
       </div>
 
       <SecHead>Career timeline</SecHead>
+      {S.timeline.length === 0 && (
+        <Body size={12.5} dim>Every match, badge and rank move lands here — nothing resets, everything accumulates.</Body>
+      )}
       <Col gap={0}>
         {S.timeline.map((t, i) => (
           <Row key={t.id} gap={11} style={{ alignItems: "flex-start", position: "relative", paddingBottom: i === S.timeline.length - 1 ? 0 : 14 }}>
@@ -81,10 +86,14 @@ export function ProfileScreen({ S, A }) {
         ))}
       </Col>
 
-      <SecHead>Seasons</SecHead>
-      <Row gap={7}>
-        {seasons.map((s) => <Pill key={s.id} small on={s.now}>{s.name} · {s.now ? "#" + S.rank : s.rank}</Pill>)}
-      </Row>
+      {seasons.length > 0 && (
+        <React.Fragment>
+          <SecHead>Seasons</SecHead>
+          <Row gap={7} style={{ flexWrap: "wrap" }}>
+            {seasons.map((s) => <Pill key={s.id} small on={s.now}>{s.name}{s.now ? " · #" + S.rank : ""}</Pill>)}
+          </Row>
+        </React.Fragment>
+      )}
       <Body size={11.5} dim style={{ textAlign: "center", marginTop: 4 }}>Nothing is deleted. Everything accumulates.</Body>
     </Col>
   );
@@ -95,6 +104,20 @@ export function ProfileScreen({ S, A }) {
 export function ShareOverlay({ S, A }) {
   if (!S.share) return null;
   const victory = S.share === "victory";
+  const season = (S.seasons || []).find((s) => s.now);
+  const score = S.matchResult ? S.matchResult.a + "–" + S.matchResult.b : "";
+  const caption = victory
+    ? ["Victory " + score, S.shareLine, S.shareSub, "ternakpadel.xyz"].filter(Boolean).join(" · ")
+    : ["Rank #" + S.rank, "Win rate " + S.winRate + "%", S.streak > 0 ? "W" + S.streak + " streak" : "", "ternakpadel.xyz"].filter(Boolean).join(" · ");
+  const doShare = async (e) => {
+    e.stopPropagation();
+    try {
+      if (navigator.share) { await navigator.share({ text: caption }); A.closeShare(); }
+      else { await navigator.clipboard.writeText(caption); A.toast("Caption copied — paste it anywhere 📋"); }
+    } catch { /* share sheet dismissed */ }
+  };
+  // fixed brand-navy palette on purpose: this is an exported-look story card,
+  // not a themed surface
   return (
     <div onClick={A.closeShare} style={{
       position: "absolute", inset: 0, zIndex: 90, background: "rgba(0,0,0,0.72)",
@@ -103,43 +126,38 @@ export function ShareOverlay({ S, A }) {
     }}>
       <div onClick={(e) => e.stopPropagation()} style={{
         width: 230, aspectRatio: "9/16", borderRadius: 18, overflow: "hidden",
-        background: "linear-gradient(160deg, #18181b 0%, #09090b 60%)",
-        border: "1px solid #2b2b2b", position: "relative",
+        background: "linear-gradient(160deg, #141C3D 0%, #0A0F26 60%)",
+        border: "1px solid rgba(99,116,255,0.30)", position: "relative",
         display: "flex", flexDirection: "column", justifyContent: "space-between",
         padding: 18, animation: "tpPop .3s cubic-bezier(.2,1.3,.4,1)", boxSizing: "border-box",
       }}>
         <div style={{ position: "absolute", right: -44, top: -44, width: 150, height: 150, borderRadius: "50%", background: "var(--accent)", opacity: 0.22 }} />
         <div style={{ position: "absolute", left: -30, bottom: 60, width: 90, height: 90, borderRadius: "50%", border: "2px solid var(--accent)", opacity: 0.25 }} />
         <Row style={{ justifyContent: "space-between", position: "relative" }}>
-          <Body size={10} bold color="#a3a3a3" style={{ letterSpacing: "0.14em" }}>TERNAK PADEL</Body>
-          <Body size={10} color="#71717a">SEASON 3</Body>
+          <Body size={10} bold color="#94A0C8" style={{ letterSpacing: "0.14em" }}>TERNAK PADEL</Body>
+          {season && <Body size={10} color="#5C6892" style={{ textTransform: "uppercase" }}>{season.name}</Body>}
         </Row>
         {victory ? (
           <Col gap={6} style={{ position: "relative" }}>
             <Body size={11} bold color="var(--accent)" style={{ letterSpacing: "0.12em" }}>VICTORY</Body>
-            <Num size={46} color="#fff">{S.matchResult ? S.matchResult.a + "–" + S.matchResult.b : "6–3"}</Num>
-            <Body size={12} color="#a3a3a3">{S.shareLine || "Tomy / Dina def. Andre / Sari"}</Body>
-            <Body size={11} color="#71717a">{S.shareSub || "Friday Night Americano · +12 pts"}</Body>
+            {score && <Num size={46} color="#fff">{score}</Num>}
+            {S.shareLine && <Body size={12} color="#94A0C8">{S.shareLine}</Body>}
+            {S.shareSub && <Body size={11} color="#5C6892">{S.shareSub}</Body>}
           </Col>
         ) : (
           <Col gap={6} style={{ position: "relative" }}>
             <Body size={11} bold color="var(--accent)" style={{ letterSpacing: "0.12em" }}>RANK UP</Body>
             <Num size={52} color="#fff">#{S.rank}</Num>
-            <Body size={12} color="#a3a3a3">{S.rankDelta > 0 ? "↑" + S.rankDelta + " this week · " : ""}Win rate {S.winRate}% · W{S.streak} streak</Body>
+            <Body size={12} color="#94A0C8">{S.rankDelta > 0 ? "↑" + S.rankDelta + " this week · " : ""}Win rate {S.winRate}% · W{S.streak} streak</Body>
           </Col>
         )}
         <Row style={{ justifyContent: "space-between", position: "relative" }}>
-          <Body size={11} bold color="#fff">{(S.me && S.me.user) || "@tomy"}</Body>
-          <Body size={10} color="#71717a">ternakpadel.xyz</Body>
+          {S.me?.user && <Body size={11} bold color="#fff">{S.me.user}</Body>}
+          <Body size={10} color="#5C6892" style={{ marginLeft: "auto" }}>ternakpadel.xyz</Body>
         </Row>
       </div>
-      <Row gap={8}>
-        {["Instagram Story", "WhatsApp Status"].map((m) => (
-          <Btn key={m} small primary={m === "Instagram Story"} ghost={m !== "Instagram Story"}
-            onClick={(e) => { e.stopPropagation(); A.toast("Shared to " + m + " ✓"); A.closeShare(); }}>{m}</Btn>
-        ))}
-      </Row>
-      <Body size={12} color="#a3a3a3">Tap outside to close</Body>
+      <Btn small primary onClick={doShare}>Share</Btn>
+      <Body size={12} color="#94A0C8">Tap outside to close</Body>
     </div>
   );
 }

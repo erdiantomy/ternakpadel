@@ -282,6 +282,18 @@ export function SkeletonScreen() {
   );
 }
 
+// Friendly in-flow empty state with an optional next action
+export function EmptyState({ icon, title, sub, action, onAction }) {
+  return (
+    <Card pad={22} style={{ textAlign: "center" }}>
+      {icon && <div aria-hidden style={{ fontSize: 26, marginBottom: 6 }}>{icon}</div>}
+      <Body size={13.5} bold>{title}</Body>
+      {sub && <Body size={12} dim style={{ marginTop: 3 }}>{sub}</Body>}
+      {action && <Btn small ghost onClick={onAction} style={{ marginTop: 12 }}>{action}</Btn>}
+    </Card>
+  );
+}
+
 // Full-screen fetch-failure state with a retry action
 export function ErrorState({ offline, onRetry }) {
   return (

@@ -55,8 +55,9 @@ export default function SessionBoard({ eventId }) {
 
   return (
     <div style={{ minHeight: "100dvh", background: "#070B1C", display: "flex", justifyContent: "center" }}>
+      {/* wider than the phone app: this board doubles as a TV/tablet display */}
       <div style={{
-        ...theme, background: "var(--bg)", width: "100%", maxWidth: 480, minHeight: "100dvh",
+        ...theme, background: "var(--bg)", width: "100%", maxWidth: 720, minHeight: "100dvh",
         display: "flex", flexDirection: "column", boxShadow: "0 0 0 1px var(--line)",
       }}>
         <div style={{ height: "env(safe-area-inset-top)" }} />

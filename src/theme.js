@@ -82,6 +82,7 @@ export function tpTheme(t) {
     // royal-blue "cage" hairline used for framing motifs
     "--cage": dark ? "rgba(99,116,255,0.34)" : "rgba(61,73,227,0.30)",
     "--success": "#34D27B",
+    "--warning": "#E6A23C",
     "--danger": "#FF5470",
     // rounded, friendly geometry + brand-tinted depth
     "--radius": "18px",

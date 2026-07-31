@@ -4,6 +4,11 @@ body { background: #0A0F26; font-family: 'Inter', sans-serif; }
 * { -webkit-font-smoothing: antialiased; box-sizing: border-box; }
 ::-webkit-scrollbar { width: 0; height: 0; }
 button { -webkit-tap-highlight-color: transparent; }
+button:disabled { opacity: 0.45; cursor: default; }
+
+/* opt-in visible scrollbar for wide tables (admin) */
+.tp-scroll::-webkit-scrollbar { height: 8px; }
+.tp-scroll::-webkit-scrollbar-thumb { background: var(--line, #2A3766); border-radius: 4px; }
 
 /* pressed-state feedback for buttons (touch + mouse, no JS) */
 .tp-press:active:not(:disabled) { transform: scale(0.97); }

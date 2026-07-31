@@ -1,6 +1,6 @@
 import React from "react";
 import { rupiah } from "../lib/format.js";
-import { Disp, Body, Num, Card, Ava, Pill, Btn, Row, Col, SecHead, Sheet, MicroLabel, LiveDot, HeaderPill, StatTile } from "../components/atoms.jsx";
+import { Disp, Body, Num, Card, Ava, Pill, Btn, Row, Col, SecHead, Sheet, MicroLabel, LiveDot, HeaderPill, StatTile, EmptyState } from "../components/atoms.jsx";
 
 export function FeedItem({ post, onLike }) {
   const kindIcon = { result: "🎾", rank: "📈", badge: "🏅", join: "📅", announcement: "📣" }[post.kind] || "🎾";
@@ -75,7 +75,11 @@ export function HomeScreen({ S, A, layout }) {
   const hero = ev ? (
     <MatchDayHero ev={ev} joined={S.joined[ev.id]} checkedIn={S.checkedIn}
       onOpen={() => A.openEvent(ev.id)} onCheckin={A.checkIn} />
-  ) : null;
+  ) : (
+    <EmptyState icon="🎾" title="No upcoming session"
+      sub="When a host opens registration, match day shows up here."
+      action="Browse events" onAction={() => A.setTab("events")} />
+  );
   const form = (
     <Row gap={8}>
       {[
@@ -87,7 +91,7 @@ export function HomeScreen({ S, A, layout }) {
       ))}
     </Row>
   );
-  const week = (
+  const week = S.events.length < 2 ? null : (
     <Col gap={8}>
       <SecHead right="All events →" onRight={() => A.setTab("events")}>This week</SecHead>
       {S.events.slice(1, 3).map((e) => (
@@ -112,7 +116,12 @@ export function HomeScreen({ S, A, layout }) {
   const feed = (
     <Col gap={8}>
       <SecHead>Community</SecHead>
-      {S.feed.map((p) => <FeedItem key={p.id} post={p} onLike={A.like} />)}
+      {S.feed.length === 0 ? (
+        <EmptyState icon="📣" title="Quiet for now"
+          sub="Match results, rank moves and announcements show up here as they happen." />
+      ) : (
+        S.feed.map((p) => <FeedItem key={p.id} post={p} onLike={A.like} />)
+      )}
     </Col>
   );
   return (
@@ -123,7 +132,7 @@ export function HomeScreen({ S, A, layout }) {
           <Disp size={21}>{(S.me?.name || "Player").split(" ")[0]} 👋</Disp>
         </Col>
         <Row gap={8}>
-          <button onClick={A.openSettings} title="Settings" style={{
+          <button onClick={A.openSettings} title="Settings" aria-label="Settings" className="tp-press" style={{
             width: 36, height: 36, borderRadius: "50%", border: "1px solid var(--line)",
             background: "var(--surface)", color: "var(--text2)", cursor: "pointer",
             display: "flex", alignItems: "center", justifyContent: "center",
@@ -160,6 +169,12 @@ export function EventsScreen({ S, A }) {
       <div style={{ display: "flex", gap: 7, overflowX: "auto", paddingBottom: 2 }}>
         {types.map((t) => <Pill key={t} small on={filter === t} onClick={() => setFilter(t)}>{t === "King of the Hill" ? "KOTH" : t}</Pill>)}
       </div>
+      {list.length === 0 && (
+        <EmptyState icon="📅" title={filter === "All" ? "No events yet" : "No " + (filter === "King of the Hill" ? "KOTH" : filter) + " events"}
+          sub={filter === "All"
+            ? "New sessions open here as soon as a host creates one."
+            : "Try another format — or All to see everything."} />
+      )}
       <Col gap={9}>
         {list.map((e) => (
           <Card key={e.id} onClick={() => A.openEvent(e.id)} accent={e.today}>
@@ -195,8 +210,8 @@ export function EventDetail({ S, A, ev }) {
   return (
     <Col gap={12} style={{ padding: "0 0 90px" }}>
       <div style={{
-        height: 130, background: "linear-gradient(135deg, var(--accent-soft), var(--surface2) 70%)",
-        display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "12px 16px 14px",
+        minHeight: 130, background: "linear-gradient(135deg, var(--accent-soft), var(--surface2) 70%)",
+        display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 12, padding: "12px 16px 14px",
       }}>
         <Row style={{ justifyContent: "space-between" }}>
           <HeaderPill onClick={A.back}>← Back</HeaderPill>
@@ -207,7 +222,7 @@ export function EventDetail({ S, A, ev }) {
             <Pill small on>{ev.type}</Pill>
             <Pill small>+{ev.pts} ranking pts</Pill>
           </Row>
-          <Disp size={23}>{ev.title}</Disp>
+          <Disp size={23} style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{ev.title}</Disp>
         </Col>
       </div>
       <Col gap={12} style={{ padding: "0 16px" }}>

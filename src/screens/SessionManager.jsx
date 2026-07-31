@@ -20,7 +20,7 @@ const initialsOf = (n) =>
   (n || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || "").join("") || "?";
 
 const STATUS_LABEL = { open: "Scheduled", live: "Live", paused: "Paused", done: "Finished", cancelled: "Cancelled" };
-const STATUS_COLOR = { open: "var(--text2)", live: "var(--danger)", paused: "#E6A23C", done: "var(--success)", cancelled: "var(--text2)" };
+const STATUS_COLOR = { open: "var(--text2)", live: "var(--danger)", paused: "var(--warning)", done: "var(--success)", cancelled: "var(--text2)" };
 
 export function StatusBadge({ status, onClick }) {
   const s = status || "open";
@@ -268,15 +268,19 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
   };
 
   // ---------- render ----------
+  // position:fixed breaks the console out of the 480px phone shell so the
+  // courtside/iPad surface gets the full viewport width
   return (
-    <div style={{ position: "absolute", inset: 0, zIndex: 75, background: "var(--bg)", display: "flex", flexDirection: "column", animation: "tpFade .15s" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 75, background: "var(--bg)", display: "flex", flexDirection: "column", animation: "tpFade .15s" }}>
       <Row style={{ justifyContent: "space-between", padding: "calc(14px + env(safe-area-inset-top)) 16px 12px", borderBottom: "1px solid var(--line)" }}>
-        <HeaderPill onClick={onClose}>← Done</HeaderPill>
-        <StatusBadge status={ev.status} />
+        <Row gap={10} style={{ justifyContent: "space-between", flex: 1, maxWidth: 760, margin: "0 auto" }}>
+          <HeaderPill onClick={onClose}>← Done</HeaderPill>
+          <StatusBadge status={ev.status} />
+        </Row>
       </Row>
 
       <div style={{ flex: 1, overflowY: "auto" }}>
-        <Col gap={14} style={{ padding: "14px 16px calc(28px + env(safe-area-inset-bottom))" }}>
+        <Col gap={14} style={{ padding: "14px 16px calc(28px + env(safe-area-inset-bottom))", maxWidth: 760, margin: "0 auto" }}>
           <Col gap={2}>
             <MicroLabel size={11.5}>Manage session</MicroLabel>
             <Disp size={22}>{ev.title}</Disp>
@@ -383,11 +387,14 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
                   <Body size={12.5} bold>Round {r}</Body>
                   {!locked && <button onClick={() => clearRound(r)} className="tp-press" style={{ background: "none", border: "none", color: "var(--text2)", fontSize: 12, fontWeight: 600, cursor: "pointer", minHeight: 36, padding: "0 8px" }}>clear</button>}
                 </Row>
-                {rm.map((m, i) => (
-                  <MatchRow key={m.id} m={m} cfg={draft} roster={roster} nameOf={nameOf} locked={locked}
-                    first={i === 0} last={i === rm.length - 1}
-                    onScore={score} onMove={move} onSwap={swapSlot} />
-                ))}
+                {/* two courts side-by-side on iPad-width screens */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 8 }}>
+                  {rm.map((m, i) => (
+                    <MatchRow key={m.id} m={m} cfg={draft} roster={roster} nameOf={nameOf} locked={locked}
+                      first={i === 0} last={i === rm.length - 1}
+                      onScore={score} onMove={move} onSwap={swapSlot} />
+                  ))}
+                </div>
               </Col>
             );
           })}
