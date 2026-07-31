@@ -80,3 +80,29 @@ export function matchComplete({ score_a, score_b, target, targetMode }) {
   if (targetMode === "bestof") return (score_a + score_b) >= target;
   return score_a >= target || score_b >= target; // race
 }
+
+// Live session leaderboard. Every player who appears in a match gets a row:
+//   pts    — sum of their team's score across all matches
+//   diff   — point differential (scored minus conceded)
+//   wins / played — counted on matches that reached their target
+// Ordering follows the session's scoring mode:
+//   points  → total points, then diff, then wins
+//   ranking → wins, then diff, then total points
+export function sessionStandings(matches, { scoreMode, targetMode } = {}) {
+  const acc = {};
+  const row = (id) => (acc[id] = acc[id] || { id, pts: 0, diff: 0, wins: 0, played: 0 });
+  for (const m of matches) {
+    const done = matchComplete({ score_a: m.score_a, score_b: m.score_b, target: m.target, targetMode });
+    for (const [ids, my, opp] of [[m.team_a, m.score_a, m.score_b], [m.team_b, m.score_b, m.score_a]]) {
+      for (const id of ids) {
+        const r = row(id);
+        r.pts += my;
+        r.diff += my - opp;
+        if (done) { r.played += 1; if (my > opp) r.wins += 1; }
+      }
+    }
+  }
+  return Object.values(acc).sort(scoreMode === "ranking"
+    ? (a, b) => b.wins - a.wins || b.diff - a.diff || b.pts - a.pts
+    : (a, b) => b.pts - a.pts || b.diff - a.diff || b.wins - a.wins);
+}

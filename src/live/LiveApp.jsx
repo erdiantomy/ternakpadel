@@ -11,6 +11,7 @@ import { SessionManager } from "../screens/SessionManager.jsx";
 import { LiveOnboarding } from "./LiveOnboarding.jsx";
 import { CourtBadge } from "../components/BrandMark.jsx";
 import { VENUE_DEFAULT } from "../lib/courts.js";
+import { sessionConfig } from "../lib/session.js";
 
 // ---------- helpers ----------
 
@@ -309,7 +310,7 @@ export default function LiveApp() {
       live = {
         eventId: liveEvent.id, title: liveEvent.title, venue: liveEvent.venue,
         status: liveEvent.status,
-        round, totalRounds: 7, courts,
+        round, totalRounds: sessionConfig(liveEvent).rounds, courts,
       };
     }
 
