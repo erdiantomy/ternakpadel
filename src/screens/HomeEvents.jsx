@@ -1,6 +1,6 @@
 import React from "react";
 import { rupiah } from "../lib/format.js";
-import { Disp, Body, Num, Card, Ava, Pill, Btn, Row, Col, SecHead, Sheet } from "../components/atoms.jsx";
+import { Disp, Body, Num, Card, Ava, Pill, Btn, Row, Col, SecHead, Sheet, MicroLabel, LiveDot, HeaderPill, StatTile } from "../components/atoms.jsx";
 
 export function FeedItem({ post, onLike }) {
   const kindIcon = { result: "🎾", rank: "📈", badge: "🏅", join: "📅", announcement: "📣" }[post.kind] || "🎾";
@@ -83,10 +83,7 @@ export function HomeScreen({ S, A, layout }) {
         ["Win rate", S.winRate + "%"],
         ["Season", "#" + S.rank],
       ].map(([l, v]) => (
-        <Card key={l} pad={"calc(11px * var(--sp))"} style={{ flex: 1 }}>
-          <Body size={10.5} dim style={{ letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600 }}>{l}</Body>
-          <Num size={19} style={{ marginTop: 4 }}>{v}</Num>
-        </Card>
+        <StatTile key={l} label={l} value={v} />
       ))}
     </Row>
   );
@@ -202,8 +199,8 @@ export function EventDetail({ S, A, ev }) {
         display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "12px 16px 14px",
       }}>
         <Row style={{ justifyContent: "space-between" }}>
-          <button onClick={A.back} style={{ background: "var(--surface)", border: "1px solid var(--line)", color: "var(--text)", borderRadius: 999, padding: "6px 13px", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>← Back</button>
-          <button onClick={() => A.shareEvent(ev.id)} style={{ background: "var(--surface)", border: "1px solid var(--line)", color: "var(--text)", borderRadius: 999, padding: "6px 13px", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>🔗 Share</button>
+          <HeaderPill onClick={A.back}>← Back</HeaderPill>
+          <HeaderPill onClick={() => A.shareEvent(ev.id)}>🔗 Share</HeaderPill>
         </Row>
         <Col gap={3}>
           <Row gap={6}>
@@ -216,11 +213,11 @@ export function EventDetail({ S, A, ev }) {
       <Col gap={12} style={{ padding: "0 16px" }}>
         <Row gap={8}>
           <Card pad={"calc(11px * var(--sp))"} style={{ flex: 1 }}>
-            <Body size={10.5} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.06em" }}>When</Body>
+            <MicroLabel size={10.5}>When</MicroLabel>
             <Body size={13} bold style={{ marginTop: 3 }}>{ev.dateLong}</Body>
           </Card>
           <Card pad={"calc(11px * var(--sp))"} style={{ flex: 1 }}>
-            <Body size={10.5} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.06em" }}>Where</Body>
+            <MicroLabel size={10.5}>Where</MicroLabel>
             <Body size={13} bold style={{ marginTop: 3 }}>{ev.venue} · {ev.courts} courts</Body>
           </Card>
         </Row>
@@ -260,7 +257,7 @@ export function EventDetail({ S, A, ev }) {
           <Card accent onClick={() => A.setTab("matches")}>
             <Row style={{ justifyContent: "space-between" }}>
               <Row gap={8}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--danger)", animation: "tpPulse 1.2s infinite" }} />
+                <LiveDot />
                 <Body size={13.5} bold>Live now — Round {S.live?.round || 3} of {S.live?.totalRounds || 7}</Body>
               </Row>
               <Body size={13} bold color="var(--accent-text)">Watch →</Body>

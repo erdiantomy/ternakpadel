@@ -5,6 +5,12 @@ body { background: #0A0F26; font-family: 'Inter', sans-serif; }
 ::-webkit-scrollbar { width: 0; height: 0; }
 button { -webkit-tap-highlight-color: transparent; }
 
+/* pressed-state feedback for buttons (touch + mouse, no JS) */
+.tp-press:active:not(:disabled) { transform: scale(0.97); }
+
+/* keyboard focus ring in the accent color; never shown for pointer clicks */
+:focus-visible { outline: 2px solid var(--ring, #C4F22E); outline-offset: 2px; }
+
 /* lime selection — the brand's energy color */
 ::selection { background: #C4F22E; color: #0A0F26; }
 

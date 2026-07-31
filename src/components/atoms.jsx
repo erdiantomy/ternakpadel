@@ -61,7 +61,7 @@ export function Ava({ ini, d = 36, ring }) {
 
 export function Pill({ children, on, onClick, small }) {
   return (
-    <button onClick={onClick} style={{
+    <button onClick={onClick} className={onClick ? "tp-press" : undefined} aria-pressed={on != null ? !!on : undefined} style={{
       border: "1px solid " + (on ? "var(--accent)" : "var(--line)"),
       background: on ? "var(--accent-soft)" : "transparent",
       color: on ? "var(--text)" : "var(--text2)",
@@ -72,9 +72,9 @@ export function Pill({ children, on, onClick, small }) {
   );
 }
 
-export function Btn({ children, primary, ghost, onClick, full, danger, small, style }) {
+export function Btn({ children, primary, ghost, onClick, full, danger, small, style, disabled, ariaLabel }) {
   return (
-    <button onClick={onClick} style={{
+    <button onClick={onClick} disabled={disabled} aria-label={ariaLabel} className="tp-press" style={{
       width: full ? "100%" : undefined,
       background: primary ? "var(--accent)" : danger ? "var(--danger)" : ghost ? "transparent" : "var(--surface2)",
       color: primary ? "var(--accent-ink)" : danger ? "#fff" : "var(--text)",
@@ -84,15 +84,89 @@ export function Btn({ children, primary, ghost, onClick, full, danger, small, st
       padding: small ? "8px 14px" : "13px 18px",
       fontFamily: "var(--font-display)", fontWeight: 700, fontSize: small ? 13 : 15,
       letterSpacing: "0.005em",
-      boxShadow: primary ? "0 8px 22px var(--accent-soft), 0 2px 8px var(--accent-soft)" : "none",
-      cursor: "pointer", whiteSpace: "nowrap",
-      transition: "filter .12s, transform .08s, box-shadow .15s",
+      boxShadow: primary && !disabled ? "0 8px 22px var(--accent-soft), 0 2px 8px var(--accent-soft)" : "none",
+      cursor: disabled ? "default" : "pointer", whiteSpace: "nowrap",
+      opacity: disabled ? 0.45 : 1,
+      transition: "filter .12s, transform .08s, box-shadow .15s, opacity .15s",
       ...style,
-    }}
-    onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.97)"; }}
-    onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
-    onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
-    >{children}</button>
+    }}>{children}</button>
+  );
+}
+
+// Shared text field (input or textarea via `multiline`) — one style everywhere
+export function Input({ multiline, style, ...props }) {
+  const s = {
+    background: "var(--surface)", border: "1.5px solid var(--line)",
+    borderRadius: "var(--radius-sm)", padding: "12px 14px",
+    color: "var(--text)", fontFamily: "var(--font-body)", fontSize: 14,
+    width: "100%", boxSizing: "border-box", colorScheme: "dark light",
+    ...style,
+  };
+  return multiline ? <textarea {...props} style={s} /> : <input {...props} style={s} />;
+}
+
+// Uppercase micro-label used above values / sections
+export function MicroLabel({ children, size = 11, style }) {
+  return <Body size={size} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.06em", ...style }}>{children}</Body>;
+}
+
+// Pulsing status dot (live indicators)
+export function LiveDot({ color = "var(--danger)", size = 8, pulse = true }) {
+  return <span aria-hidden style={{
+    width: size, height: size, borderRadius: "50%", background: color, flex: "0 0 auto",
+    animation: pulse ? "tpPulse 1.2s infinite" : "none",
+  }} />;
+}
+
+// Small pill button used in overlay headers (Back / Share / Close / Done)
+export function HeaderPill({ children, onClick, ariaLabel, style }) {
+  return (
+    <button onClick={onClick} aria-label={ariaLabel} className="tp-press" style={{
+      background: "var(--surface)", border: "1px solid var(--line)", color: "var(--text)",
+      borderRadius: 999, padding: "8px 14px", minHeight: 36,
+      fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, cursor: "pointer",
+      ...style,
+    }}>{children}</button>
+  );
+}
+
+// Label-over-value stat card (Home form row, Profile career stats)
+export function StatTile({ label, value, size = 19, center }) {
+  return (
+    <Card pad={"calc(11px * var(--sp))"} style={{ flex: 1, textAlign: center ? "center" : "left" }}>
+      <MicroLabel size={10.5}>{label}</MicroLabel>
+      <Num size={size} style={{ marginTop: 4 }}>{value}</Num>
+    </Card>
+  );
+}
+
+// One row of a leaderboard/standings list — shared by Matches standings,
+// Rankings, the host console and the public board.
+export function LeaderboardRow({ rank, ini, name, sub, pts, hi, ring, bold, topAccent = true, extra }) {
+  return (
+    <Row gap={10} style={{
+      padding: "8px 8px", borderRadius: "var(--radius-sm)",
+      background: hi ? "var(--accent-soft)" : "transparent",
+    }}>
+      <Num size={14} style={{ width: 20, flex: "0 0 auto" }} color={topAccent && rank <= 3 ? "var(--accent-text)" : "var(--text2)"}>{rank}</Num>
+      <Ava ini={ini} d={26} ring={ring} />
+      <Body size={13.5} bold={bold != null ? bold : hi} style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</Body>
+      {sub && <Body size={11.5} dim style={{ whiteSpace: "nowrap", flex: "0 0 auto" }}>{sub}</Body>}
+      {extra}
+      <Num size={14} style={{ minWidth: 26, textAlign: "right", flex: "0 0 auto" }}>{pts}</Num>
+    </Row>
+  );
+}
+
+// −/value/+ stepper with courtside-sized tap targets
+export function Stepper({ value, onDec, onInc, grow, disabled }) {
+  const bs = { minWidth: 44, minHeight: 44, padding: "8px 10px" };
+  return (
+    <Row gap={6} style={grow ? { flex: 1 } : undefined}>
+      <Btn small ghost disabled={disabled} onClick={onDec} ariaLabel="Decrease" style={bs}>−</Btn>
+      <Num size={20} style={{ minWidth: 28, textAlign: "center", flex: grow ? 1 : undefined }}>{value}</Num>
+      <Btn small primary disabled={disabled} onClick={onInc} ariaLabel="Increase" style={bs}>+</Btn>
+    </Row>
   );
 }
 
@@ -100,7 +174,7 @@ export function Seg({ options, value, onChange }) {
   return (
     <div style={{ display: "flex", background: "var(--surface2)", borderRadius: 13, padding: 3, gap: 2 }}>
       {options.map((o) => (
-        <button key={o} onClick={() => onChange(o)} style={{
+        <button key={o} onClick={() => onChange(o)} className="tp-press" aria-pressed={value === o} style={{
           flex: 1, border: "none", borderRadius: 11, padding: "7px 4px",
           background: value === o ? "var(--accent)" : "transparent",
           color: value === o ? "var(--accent-ink)" : "var(--text2)",
@@ -260,11 +334,12 @@ export function Toast({ msg }) {
     <div style={{
       position: "absolute", top: "calc(14px + env(safe-area-inset-top))", left: "50%", transform: "translateX(-50%)",
       zIndex: 80, background: "var(--surface)", border: "1.5px solid var(--cage)",
-      color: "var(--text)", borderRadius: 999, padding: "9px 18px",
+      color: "var(--text)", borderRadius: 18, padding: "9px 18px",
       fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600,
-      boxShadow: "var(--shadow-brand)", whiteSpace: "nowrap",
+      boxShadow: "var(--shadow-brand)", maxWidth: "min(86%, 360px)",
+      width: "max-content", textAlign: "center",
       animation: "tpUp .25s ease",
-    }}>{msg}</div>
+    }} role="status" aria-live="polite">{msg}</div>
   );
 }
 

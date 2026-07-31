@@ -1,5 +1,5 @@
 import React from "react";
-import { Disp, Body, Num, Card, Ava, Pill, Btn, Seg, Row, Col, SecHead } from "../components/atoms.jsx";
+import { Disp, Body, Num, Card, Ava, Pill, Btn, Seg, Row, Col, SecHead, MicroLabel, LiveDot, HeaderPill, LeaderboardRow } from "../components/atoms.jsx";
 import { VENUE_DEFAULT, courtName } from "../lib/courts.js";
 import { StatusBadge } from "./SessionManager.jsx";
 
@@ -27,9 +27,7 @@ export function MatchesScreen({ S, A }) {
       {live.courts.map((c, i) => (
         <Card key={c.id} accent={c.yours} onClick={c.yours ? () => A.setScorer(true) : undefined}>
           <Row style={{ justifyContent: "space-between", marginBottom: 8 }}>
-            <Body size={11} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.07em" }}>
-              {courtName(c.court || i + 1)}{c.yours ? " · your match" : ""}
-            </Body>
+            <MicroLabel>{courtName(c.court || i + 1)}{c.yours ? " · your match" : ""}</MicroLabel>
             {c.yours && <Body size={12} bold color="var(--accent-text)">Score it →</Body>}
           </Row>
           <Col gap={6}>
@@ -48,15 +46,8 @@ export function MatchesScreen({ S, A }) {
       <SecHead right="live ↻" onRight={() => window.open("/board/" + live.eventId, "_blank")}>Event standings</SecHead>
       <Card pad={8}>
         {S.standings.map((p, i) => (
-          <Row key={p.name} gap={10} style={{
-            padding: "7px 8px", borderRadius: 10,
-            background: p.me ? "var(--accent-soft)" : "transparent",
-          }}>
-            <Num size={14} style={{ width: 18 }} color={i < 3 ? "var(--accent-text)" : "var(--text2)"}>{i + 1}</Num>
-            <Ava ini={p.ini} d={26} />
-            <Body size={13.5} bold={p.me} style={{ flex: 1 }}>{p.name}{p.me ? " (you)" : ""}</Body>
-            <Num size={14}>{p.pts}</Num>
-          </Row>
+          <LeaderboardRow key={p.name} rank={i + 1} ini={p.ini}
+            name={p.name + (p.me ? " (you)" : "")} pts={p.pts} hi={p.me} bold={p.me} />
         ))}
       </Card>
       <Btn small full ghost onClick={() => window.open("/board/" + live.eventId, "_blank")}>
@@ -73,9 +64,9 @@ export function ScorerOverlay({ S, A }) {
   return (
     <div style={{ position: "absolute", inset: 0, zIndex: 70, background: "var(--bg)", display: "flex", flexDirection: "column", animation: "tpFade .15s" }}>
       <Row style={{ justifyContent: "space-between", padding: "calc(14px + env(safe-area-inset-top)) 16px 14px" }}>
-        <button onClick={() => A.setScorer(false)} style={{ background: "var(--surface)", border: "1px solid var(--line)", color: "var(--text)", borderRadius: 999, padding: "6px 13px", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>↓ Close</button>
+        <HeaderPill onClick={() => A.setScorer(false)}>↓ Close</HeaderPill>
         <Row gap={6}>
-          <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--danger)", animation: "tpPulse 1.2s infinite" }} />
+          <LiveDot />
           <Body size={12.5} bold>{courtName(c.court || 1)} · Round {S.live.round} · to {c.target || 21}</Body>
         </Row>
       </Row>
@@ -87,7 +78,7 @@ export function ScorerOverlay({ S, A }) {
               <Card key={side} accent={side === "A"} pad={18}>
                 <Row style={{ justifyContent: "space-between" }}>
                   <Col gap={3}>
-                    <Body size={12} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.06em" }}>{side === (c.mySide || "A") ? "Your team" : "Opponents"}</Body>
+                    <MicroLabel size={12}>{side === (c.mySide || "A") ? "Your team" : "Opponents"}</MicroLabel>
                     <Body size={16} bold>{team}</Body>
                   </Col>
                   <Num size={52}>{score}</Num>
@@ -160,16 +151,9 @@ export function RankingsScreen({ S }) {
       </Row>}
       <Card pad={8}>
         {rest.map((p, i) => (
-          <Row key={p.id} gap={10} style={{
-            padding: "8px 8px", borderRadius: 10,
-            background: p.me ? "var(--accent-soft)" : "transparent",
-          }}>
-            <Num size={14} style={{ width: 20 }} color="var(--text2)">{i + (hasPodium ? 4 : 1)}</Num>
-            <Ava ini={p.initials} d={28} ring={p.me} />
-            <Body size={13.5} bold={p.me} style={{ flex: 1 }}>{p.name}{p.me ? " (you)" : ""}</Body>
-            {p.me && S.rankDelta > 0 && <Body size={12} bold color="var(--success)">↑{S.rankDelta}</Body>}
-            <Num size={14}>{p.pts}</Num>
-          </Row>
+          <LeaderboardRow key={p.id} rank={i + (hasPodium ? 4 : 1)} ini={p.initials} ring={p.me}
+            name={p.name + (p.me ? " (you)" : "")} pts={p.pts} hi={p.me} bold={p.me} topAccent={!hasPodium}
+            extra={p.me && S.rankDelta > 0 ? <Body size={12} bold color="var(--success)">↑{S.rankDelta}</Body> : null} />
         ))}
       </Card>
       <Body size={11.5} dim style={{ textAlign: "center" }}>ELO-weighted · {period === "Season" ? "Season 3 · resets 1 Sep" : period}</Body>

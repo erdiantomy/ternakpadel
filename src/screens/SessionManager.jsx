@@ -1,7 +1,8 @@
 import React from "react";
 import { supabase } from "../lib/supabase.js";
-import { Disp, Body, Num, Card, Ava, Pill, Btn, Seg, Row, Col, SecHead } from "../components/atoms.jsx";
+import { Disp, Body, Num, Card, Ava, Pill, Btn, Seg, Row, Col, SecHead, MicroLabel, LiveDot, HeaderPill, LeaderboardRow, Stepper, Input } from "../components/atoms.jsx";
 import { courtName } from "../lib/courts.js";
+import { errMsg } from "../lib/format.js";
 import { sessionConfig, buildRound, matchComplete, sessionStandings } from "../lib/session.js";
 
 // Organizer's self-service session console. Lives entirely in the player app —
@@ -28,10 +29,7 @@ export function StatusBadge({ status, onClick }) {
       background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 999,
       padding: "5px 11px", cursor: onClick ? "pointer" : "default",
     }}>
-      <span style={{
-        width: 8, height: 8, borderRadius: "50%", background: STATUS_COLOR[s],
-        animation: s === "live" ? "tpPulse 1.2s infinite" : "none",
-      }} />
+      <LiveDot color={STATUS_COLOR[s]} pulse={s === "live"} />
       <Body size={11.5} bold>{STATUS_LABEL[s] || s}</Body>
     </Row>
   );
@@ -108,7 +106,7 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
   // ---------- actions ----------
   const setStatus = async (status) => {
     const { error } = await supabase.from("events").update({ status }).eq("id", eventId);
-    if (error) return toast(error.message);
+    if (error) return toast(errMsg(error));
     toast("Status: " + (STATUS_LABEL[status] || status));
     refresh();
   };
@@ -118,7 +116,7 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
     // keep the legacy `type` label in sync with the chosen format
     if (next.format) patch.type = next.format === "mexicano" ? "Mexicano" : "Americano";
     const { error } = await supabase.from("events").update(patch).eq("id", eventId);
-    if (error) { toast(error.message); return false; }
+    if (error) { toast(errMsg(error)); return false; }
     return true;
   };
 
@@ -139,7 +137,7 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
     const { error } = await supabase.from("event_players").upsert(
       realIds.map((id) => ({ event_id: eventId, player_id: id, status: "paid", paid: true })),
       { onConflict: "event_id,player_id" });
-    if (error) toast(error.message);
+    if (error) toast(errMsg(error));
   };
 
   // import the reclub placeholder names (events.roster) into the session lineup
@@ -175,7 +173,7 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
       team_a_names: c.team_a_names, team_b_names: c.team_b_names,
       target: conf.target, status: "live",
     })));
-    if (error) { toast(error.message); return false; }
+    if (error) { toast(errMsg(error)); return false; }
     return true;
   };
 
@@ -211,7 +209,7 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
       rounds: draft.rounds, targetMode: draft.targetMode, target: draft.target,
     });
     const { error } = await supabase.from("matches").delete().eq("event_id", eventId);
-    if (error) return toast(error.message);
+    if (error) return toast(errMsg(error));
     await ensurePaid(roster);
     if (await insertRound(1, draft, roster)) { toast("Schedule regenerated from round 1"); refresh(); }
   };
@@ -220,7 +218,7 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
     if (locked) return toast("Session finished — set status back to Live to reopen");
     if (!window.confirm("Delete round " + round + " and its scores?")) return;
     const { error } = await supabase.from("matches").delete().eq("event_id", eventId).eq("round", round);
-    if (error) return toast(error.message);
+    if (error) return toast(errMsg(error));
     toast("Round " + round + " cleared"); refresh();
   };
 
@@ -273,21 +271,21 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
   return (
     <div style={{ position: "absolute", inset: 0, zIndex: 75, background: "var(--bg)", display: "flex", flexDirection: "column", animation: "tpFade .15s" }}>
       <Row style={{ justifyContent: "space-between", padding: "calc(14px + env(safe-area-inset-top)) 16px 12px", borderBottom: "1px solid var(--line)" }}>
-        <button onClick={onClose} style={{ background: "var(--surface)", border: "1px solid var(--line)", color: "var(--text)", borderRadius: 999, padding: "6px 13px", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>← Done</button>
+        <HeaderPill onClick={onClose}>← Done</HeaderPill>
         <StatusBadge status={ev.status} />
       </Row>
 
       <div style={{ flex: 1, overflowY: "auto" }}>
         <Col gap={14} style={{ padding: "14px 16px calc(28px + env(safe-area-inset-bottom))" }}>
           <Col gap={2}>
-            <Body size={11.5} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.08em" }}>Manage session</Body>
+            <MicroLabel size={11.5}>Manage session</MicroLabel>
             <Disp size={22}>{ev.title}</Disp>
             <Body size={12.5} dim>{roster.length} players · {matches.length} matches · {rounds.length}/{draft.rounds} rounds</Body>
           </Col>
 
           {/* status controls — informational, never gate generation or scoring */}
           <Card pad={12}>
-            <Body size={11} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Status (info only)</Body>
+            <MicroLabel style={{ marginBottom: 8 }}>Status (info only)</MicroLabel>
             <Row gap={7} style={{ flexWrap: "wrap" }}>
               <Pill small on={ev.status === "open"} onClick={() => setStatus("open")}>Scheduled</Pill>
               <Pill small on={ev.status === "live"} onClick={() => setStatus("live")}>Live</Pill>
@@ -310,16 +308,9 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
               </Body>
             )}
             {standings.map((r, i) => (
-              <Row key={r.id} gap={10} style={{
-                padding: "7px 8px", borderRadius: 10,
-                background: locked && i === 0 ? "var(--accent-soft)" : "transparent",
-              }}>
-                <Num size={14} style={{ width: 20 }} color={i < 3 ? "var(--accent-text)" : "var(--text2)"}>{i + 1}</Num>
-                <Ava ini={initialsOf(nameOf(r.id))} d={26} />
-                <Body size={13.5} bold={i === 0} style={{ flex: 1, minWidth: 0 }}>{nameOf(r.id)}</Body>
-                <Body size={11.5} dim>{r.wins}W · {r.played}P</Body>
-                <Num size={14}>{r.pts}</Num>
-              </Row>
+              <LeaderboardRow key={r.id} rank={i + 1} ini={initialsOf(nameOf(r.id))}
+                name={nameOf(r.id)} sub={r.wins + "W · " + r.played + "P"} pts={r.pts}
+                hi={locked && i === 0} bold={i === 0} />
             ))}
           </Card>
           <Btn small full ghost onClick={shareBoard}>🔗 Share {locked ? "final" : "live"} leaderboard</Btn>
@@ -390,7 +381,7 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
               <Col key={r} gap={8}>
                 <Row style={{ justifyContent: "space-between", marginTop: 4 }}>
                   <Body size={12.5} bold>Round {r}</Body>
-                  {!locked && <button onClick={() => clearRound(r)} style={{ background: "none", border: "none", color: "var(--text2)", fontSize: 12, cursor: "pointer" }}>clear</button>}
+                  {!locked && <button onClick={() => clearRound(r)} className="tp-press" style={{ background: "none", border: "none", color: "var(--text2)", fontSize: 12, fontWeight: 600, cursor: "pointer", minHeight: 36, padding: "0 8px" }}>clear</button>}
                 </Row>
                 {rm.map((m, i) => (
                   <MatchRow key={m.id} m={m} cfg={draft} roster={roster} nameOf={nameOf} locked={locked}
@@ -440,11 +431,9 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
 
 function NumInput({ value, onChange, min = 0 }) {
   return (
-    <Row gap={6}>
-      <Btn small ghost onClick={() => onChange(Math.max(min, (value || 0) - 1))} style={{ minWidth: 40 }}>−</Btn>
-      <Num size={18} style={{ flex: 1, textAlign: "center" }}>{value}</Num>
-      <Btn small ghost onClick={() => onChange((value || 0) + 1)} style={{ minWidth: 40 }}>+</Btn>
-    </Row>
+    <Stepper grow value={value}
+      onDec={() => onChange(Math.max(min, (value || 0) - 1))}
+      onInc={() => onChange((value || 0) + 1)} />
   );
 }
 
@@ -457,8 +446,8 @@ function PlayerRow({ id, name, profileName, onRename, onRemove }) {
       <Row gap={9}>
         <Ava ini={initialsOf(profileName || name)} d={30} />
         {editing ? (
-          <input autoFocus value={val} onChange={(e) => setVal(e.target.value)}
-            style={{ flex: 1, background: "var(--surface2)", border: "1px solid var(--line)", borderRadius: 8, color: "var(--text)", padding: "6px 10px", fontFamily: "var(--font-body)", fontSize: 13 }} />
+          <Input autoFocus value={val} onChange={(e) => setVal(e.target.value)}
+            style={{ flex: 1, width: "auto", padding: "8px 10px", fontSize: 13 }} />
         ) : (
           <Col gap={0} style={{ flex: 1, minWidth: 0 }}>
             <Body size={13.5} bold>{name}</Body>
@@ -469,8 +458,8 @@ function PlayerRow({ id, name, profileName, onRename, onRemove }) {
           ? <Btn small primary onClick={() => { onRename(val); setEditing(false); }}>Save</Btn>
           : <Btn small ghost onClick={() => setEditing(true)}>Rename</Btn>}
         {!editing && onRemove && (
-          <button onClick={onRemove} title="Remove player"
-            style={{ background: "none", border: "none", color: "var(--text2)", fontSize: 18, cursor: "pointer", padding: "0 4px" }}>×</button>
+          <button onClick={onRemove} title="Remove player" aria-label="Remove player" className="tp-press"
+            style={{ background: "none", border: "none", color: "var(--text2)", fontSize: 18, cursor: "pointer", minWidth: 44, minHeight: 44, margin: "-8px -6px -8px -10px" }}>×</button>
         )}
       </Row>
     </Card>
@@ -482,9 +471,9 @@ function AddPlayer({ onAdd }) {
   const submit = () => { if (val.trim()) { onAdd(val); setVal(""); } };
   return (
     <Row gap={7}>
-      <input value={val} onChange={(e) => setVal(e.target.value)} placeholder="Add player by name"
+      <Input value={val} onChange={(e) => setVal(e.target.value)} placeholder="Add player by name"
         onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-        style={{ flex: 1, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, color: "var(--text)", padding: "10px 12px", fontFamily: "var(--font-body)", fontSize: 13, outline: "none" }} />
+        style={{ flex: 1, width: "auto", padding: "10px 12px", fontSize: 13 }} />
       <Btn small primary onClick={submit}>Add</Btn>
     </Row>
   );
@@ -504,10 +493,10 @@ function MatchRow({ m, cfg, roster, nameOf, locked, first, last, onScore, onMove
   return (
     <Card pad={12} style={{ borderColor: done ? "var(--accent)" : "var(--line)" }}>
       <Row style={{ justifyContent: "space-between", marginBottom: 8 }}>
-        <Body size={11} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.06em" }}>{courtName(m.court)}</Body>
+        <MicroLabel>{courtName(m.court)}</MicroLabel>
         {!locked && <Row gap={4}>
-          <Btn small ghost onClick={() => onMove(m, -1)} style={{ minWidth: 34, opacity: first ? 0.35 : 1, padding: "6px 8px" }}>↑</Btn>
-          <Btn small ghost onClick={() => onMove(m, 1)} style={{ minWidth: 34, opacity: last ? 0.35 : 1, padding: "6px 8px" }}>↓</Btn>
+          <Btn small ghost ariaLabel="Move match up" disabled={first} onClick={() => onMove(m, -1)} style={{ minWidth: 44, minHeight: 40, padding: "6px 8px" }}>↑</Btn>
+          <Btn small ghost ariaLabel="Move match down" disabled={last} onClick={() => onMove(m, 1)} style={{ minWidth: 44, minHeight: 40, padding: "6px 8px" }}>↓</Btn>
         </Row>}
       </Row>
       {[["A", m.team_a, m.score_a], ["B", m.team_b, m.score_b]].map(([team, ids, sc]) => (
@@ -520,11 +509,7 @@ function MatchRow({ m, cfg, roster, nameOf, locked, first, last, onScore, onMove
           {locked ? (
             <Num size={20} style={{ minWidth: 26, textAlign: "center" }}>{sc}</Num>
           ) : (
-            <Row gap={6}>
-              <Btn small ghost onClick={() => onScore(m, team, -1)} style={{ minWidth: 34, padding: "6px 8px" }}>−</Btn>
-              <Num size={20} style={{ minWidth: 26, textAlign: "center" }}>{sc}</Num>
-              <Btn small primary onClick={() => onScore(m, team, 1)} style={{ minWidth: 34, padding: "6px 8px" }}>+</Btn>
-            </Row>
+            <Stepper value={sc} onDec={() => onScore(m, team, -1)} onInc={() => onScore(m, team, 1)} />
           )}
         </Row>
       ))}

@@ -1,7 +1,7 @@
 import React from "react";
 import { supabase } from "../lib/supabase.js";
 import { tpTheme } from "../theme.js";
-import { Disp, Body, Num, Card, Ava, Row, Col, Seg } from "../components/atoms.jsx";
+import { Disp, Body, Card, Row, Col, Seg, MicroLabel, LiveDot, LeaderboardRow } from "../components/atoms.jsx";
 import { CourtBadge } from "../components/BrandMark.jsx";
 
 // Public shareable leaderboard — /board/<eventId>. No login required: reads go
@@ -17,16 +17,8 @@ function BoardRows({ rows, statCols }) {
     return <Body size={13} dim style={{ padding: "10px 8px" }}>No scores yet — standings appear here live as matches are played.</Body>;
   }
   return rows.map((r, i) => (
-    <Row key={r.key || r.name + i} gap={10} style={{
-      padding: "8px 8px", borderRadius: 10,
-      background: i === 0 ? "var(--accent-soft)" : "transparent",
-    }}>
-      <Num size={14} style={{ width: 22 }} color={i < 3 ? "var(--accent-text)" : "var(--text2)"}>{i + 1}</Num>
-      <Ava ini={initialsOf(r.name)} d={28} ring={i === 0} />
-      <Body size={13.5} bold={i < 3} style={{ flex: 1, minWidth: 0 }}>{r.name}</Body>
-      <Body size={11.5} dim style={{ whiteSpace: "nowrap" }}>{statCols(r)}</Body>
-      <Num size={15} style={{ minWidth: 30, textAlign: "right" }}>{r.pts}</Num>
-    </Row>
+    <LeaderboardRow key={r.key || r.name + i} rank={i + 1} ini={initialsOf(r.name)}
+      name={r.name} sub={statCols(r)} pts={r.pts} hi={i === 0} ring={i === 0} bold={i < 3} />
   ));
 }
 
@@ -73,7 +65,7 @@ export default function SessionBoard({ eventId }) {
             <Row gap={10}>
               <CourtBadge size={38} />
               <Col gap={1}>
-                <Body size={11} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.08em" }}>Ternak Padel</Body>
+                <MicroLabel>Ternak Padel</MicroLabel>
                 <Body size={12.5} bold>Leaderboard</Body>
               </Col>
             </Row>
@@ -81,7 +73,7 @@ export default function SessionBoard({ eventId }) {
               <Row gap={6} style={{
                 background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 999, padding: "5px 11px",
               }}>
-                {!done && <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--danger)", animation: "tpPulse 1.2s infinite" }} />}
+                {!done && <LiveDot />}
                 <Body size={11.5} bold>{done ? "FINAL 🔒" : "LIVE"}</Body>
               </Row>
             )}

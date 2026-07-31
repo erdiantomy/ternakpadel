@@ -1,5 +1,5 @@
 import React from "react";
-import { Disp, Body, Num, Card, Ava, Pill, Btn, Row, Col, SecHead, Spark, Sheet } from "../components/atoms.jsx";
+import { Disp, Body, Num, Card, Ava, Pill, Btn, Row, Col, SecHead, Spark, Sheet, Input, MicroLabel, StatTile } from "../components/atoms.jsx";
 import { CourtBadge } from "../components/BrandMark.jsx";
 
 // Profile / career screen, share-card overlay, create-match sheet, onboarding.
@@ -17,7 +17,7 @@ export function ProfileScreen({ S, A }) {
           <Body size={12.5} dim>{me.user} · {me.skill} · {me.side} side · member since {me.memberSince}</Body>
         </Col>
         <Btn small ghost onClick={A.openEditProfile}>Edit</Btn>
-        <Btn small ghost onClick={A.openSettings}>⚙</Btn>
+        <Btn small ghost ariaLabel="Settings" onClick={A.openSettings}>⚙</Btn>
       </Row>
 
       {me.bio && <Body size={13} style={{ marginTop: -4 }}>{me.bio}</Body>}
@@ -29,10 +29,7 @@ export function ProfileScreen({ S, A }) {
 
       <Row gap={8}>
         {[["Matches", S.matches], ["Wins", S.wins], ["Win rate", S.winRate + "%"], ["Rank", "#" + S.rank]].map(([l, v]) => (
-          <Card key={l} pad={"calc(10px * var(--sp))"} style={{ flex: 1, textAlign: "center" }}>
-            <Num size={18}>{v}</Num>
-            <Body size={10} dim bold style={{ marginTop: 3, textTransform: "uppercase", letterSpacing: "0.05em" }}>{l}</Body>
-          </Card>
+          <StatTile key={l} label={l} value={v} size={18} center />
         ))}
       </Row>
 
@@ -161,11 +158,6 @@ export function CreateSheet({ S, A }) {
   const [creatingBusy, setCreatingBusy] = React.useState(false);
   const [src, setSrc] = React.useState(null); // reclub provenance once generated
   const formats = ["Americano", "Mexicano", "KOTH", "Knockout", "League", "Mixicano"];
-  const inputStyle = {
-    background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12,
-    padding: "12px 14px", color: "var(--text)", fontFamily: "var(--font-body)", fontSize: 14, outline: "none",
-    colorScheme: "dark light", width: "100%", boxSizing: "border-box",
-  };
   const generate = async () => {
     setBusy(true);
     const d = await A.fetchReclub(link);
@@ -202,15 +194,14 @@ export function CreateSheet({ S, A }) {
         </Row>
         {mode === "reclub" && (
           <Col gap={8}>
-            <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="Paste reclub event link (https://reclub.co/…)" style={inputStyle} />
-            <Btn ghost full onClick={generate}>{busy ? "Generating…" : "⚡ Generate from reclub"}</Btn>
+            <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="Paste reclub event link (https://reclub.co/…)" />
+            <Btn ghost full disabled={busy} onClick={generate}>{busy ? "Generating…" : "⚡ Generate from reclub"}</Btn>
             <Body size={11.5} dim>Auto-fills the details below and pulls in the confirmed participants as placeholder players — an admin can fill real emails later.</Body>
           </Col>
         )}
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Event name — e.g. Sunday Mexicano"
-          style={inputStyle} />
-        <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} style={inputStyle} />
-        <Body size={12} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: -6 }}>Format</Body>
+        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Event name — e.g. Sunday Mexicano" />
+        <Input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} />
+        <MicroLabel size={12} style={{ marginBottom: -6 }}>Format</MicroLabel>
         <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
           {formats.map((f) => <Pill key={f} small on={format === f} onClick={() => setFormat(f)}>{f}</Pill>)}
           {!formats.includes(format) && <Pill small on>{format}</Pill>}
@@ -218,17 +209,17 @@ export function CreateSheet({ S, A }) {
         <Row gap={8}>
           {[["Courts", courts, setCourts, 1, 8], ["Max players", max, setMax, 4, 64]].map(([l, v, set, lo, hi]) => (
             <Card key={l} pad={10} style={{ flex: 1 }}>
-              <Body size={11} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}>{l}</Body>
-              <Row style={{ justifyContent: "space-between", marginTop: 6 }}>
-                <Btn small ghost onClick={() => set(Math.max(lo, v - 1))}>−</Btn>
+              <MicroLabel style={{ marginBottom: 6 }}>{l}</MicroLabel>
+              <Row style={{ justifyContent: "space-between" }}>
+                <Btn small ghost ariaLabel={"Fewer " + l.toLowerCase()} onClick={() => set(Math.max(lo, v - 1))}>−</Btn>
                 <Num size={18}>{v}</Num>
-                <Btn small ghost onClick={() => set(Math.min(hi, v + 1))}>+</Btn>
+                <Btn small ghost ariaLabel={"More " + l.toLowerCase()} onClick={() => set(Math.min(hi, v + 1))}>+</Btn>
               </Row>
             </Card>
           ))}
         </Row>
         <Body size={11.5} dim>Smart matchmaking will balance pairings by ranking, partner history and social mixing.</Body>
-        <Btn primary full onClick={create} style={{ opacity: creatingBusy ? 0.7 : 1, pointerEvents: creatingBusy ? "none" : "auto" }}>
+        <Btn primary full disabled={creatingBusy} onClick={create}>
           {creatingBusy ? "Creating…" : "Create & open registration"}
         </Btn>
       </Col>
@@ -246,19 +237,14 @@ export function EditProfileSheet({ open, S, A }) {
   React.useEffect(() => {
     if (open) { setFullName(me.name || ""); setBio(me.bio || ""); setInstagram(me.instagram || ""); }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
-  const inputStyle = {
-    background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12,
-    padding: "12px 14px", color: "var(--text)", fontFamily: "var(--font-body)", fontSize: 14, outline: "none",
-    width: "100%", boxSizing: "border-box",
-  };
   return (
     <Sheet open={open} onClose={A.closeEditProfile} title="Edit profile">
       <Col gap={12}>
-        <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Name" style={inputStyle} />
-        <textarea value={bio} onChange={(e) => setBio(e.target.value)} maxLength={280}
+        <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Name" />
+        <Input multiline value={bio} onChange={(e) => setBio(e.target.value)} maxLength={280}
           placeholder="Short bio — your padel story (max 280)"
-          style={{ ...inputStyle, minHeight: 76, resize: "vertical", fontFamily: "var(--font-body)" }} />
-        <input value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="Instagram @handle" style={inputStyle} />
+          style={{ minHeight: 76, resize: "vertical" }} />
+        <Input value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="Instagram @handle" />
         <Btn primary full onClick={() => A.saveProfile({ full_name: fullName, bio, instagram })}>Save profile</Btn>
       </Col>
     </Sheet>

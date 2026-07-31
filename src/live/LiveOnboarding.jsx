@@ -1,6 +1,7 @@
 import React from "react";
 import { supabase } from "../lib/supabase.js";
-import { Disp, Body, Card, Ava, Pill, Btn, Row, Col } from "../components/atoms.jsx";
+import { errMsg } from "../lib/format.js";
+import { Disp, Body, Card, Ava, Pill, Btn, Row, Col, Input } from "../components/atoms.jsx";
 import { BrandLogo } from "../components/BrandMark.jsx";
 
 // Onboarding: Google sign-in (Supabase OAuth), then profile setup questions.
@@ -23,14 +24,8 @@ export function LiveOnboarding({ session, profile, onDone, toast }) {
   const [busy, setBusy] = React.useState(false);
   const [answers, setAnswers] = React.useState({});
 
-  // text-field styling that follows the brand theme, with a lime focus ring
-  const field = {
-    width: "100%", boxSizing: "border-box", padding: "13px 15px",
-    background: "var(--surface)", border: "1.5px solid var(--line)",
-    borderRadius: "var(--radius-sm)", color: "var(--text)",
-    fontFamily: "var(--font-body)", fontSize: 15, outline: "none",
-    transition: "border-color .15s",
-  };
+  // shared Input, sized up slightly for the welcome screen + accent focus ring
+  const field = { padding: "13px 15px", fontSize: 15, transition: "border-color .15s" };
   const focusOn = (e) => { e.target.style.borderColor = "var(--accent)"; };
   const focusOff = (e) => { e.target.style.borderColor = "var(--line)"; };
 
@@ -56,7 +51,7 @@ export function LiveOnboarding({ session, profile, onDone, toast }) {
       options: { redirectTo: window.location.origin },
     });
     // on success the browser navigates away to Google; only errors return here
-    if (error) { setBusy(false); toast(error.message); }
+    if (error) { setBusy(false); toast(errMsg(error)); }
   };
 
   // Passwordless email sign-in: we email a one-tap magic link. Works with any
@@ -75,7 +70,7 @@ export function LiveOnboarding({ session, profile, onDone, toast }) {
       },
     });
     setBusy(false);
-    if (error) return toast(error.message);
+    if (error) return toast(errMsg(error));
     setStep(1); // "check your email"
   };
 
@@ -91,7 +86,7 @@ export function LiveOnboarding({ session, profile, onDone, toast }) {
       play_freq: finalAnswers.play_freq || null,
       goal: finalAnswers.goal || null,
     }).eq("id", user.id);
-    if (error) return toast(error.message);
+    if (error) return toast(errMsg(error));
     setStep(6);
   };
 
@@ -104,25 +99,25 @@ export function LiveOnboarding({ session, profile, onDone, toast }) {
             <Body size={15} bold>Built for players who want more.</Body>
             <Body size={14} dim>More matches. More competition. More growth.</Body>
           </Col>
-          <input
+          <Input
             value={name} onChange={(e) => setName(e.target.value)}
             placeholder="Your name" autoComplete="name"
             style={field} onFocus={focusOn} onBlur={focusOff}
           />
-          <input
+          <Input
             value={email} onChange={(e) => setEmail(e.target.value)}
             placeholder="you@email.com" type="email" inputMode="email" autoComplete="email"
             style={field} onFocus={focusOn} onBlur={focusOff}
             onKeyDown={(e) => { if (e.key === "Enter") sendMagicLink(); }}
           />
-          <Btn primary full onClick={sendMagicLink}>{busy ? "Sending link…" : "Email me a sign-in link"}</Btn>
+          <Btn primary full disabled={busy} onClick={sendMagicLink}>{busy ? "Sending link…" : "Email me a sign-in link"}</Btn>
           <Body size={12} dim>Works with any email — Gmail, Outlook, Yahoo, your own domain.</Body>
           <Row gap={10} style={{ margin: "2px 0" }}>
             <div style={{ flex: 1, height: 1, background: "var(--line)" }} />
             <Body size={11} dim>or</Body>
             <div style={{ flex: 1, height: 1, background: "var(--line)" }} />
           </Row>
-          <Btn ghost full onClick={signInWithGoogle}>{busy ? "Opening…" : "Continue with Google"}</Btn>
+          <Btn ghost full disabled={busy} onClick={signInWithGoogle}>{busy ? "Opening…" : "Continue with Google"}</Btn>
         </Col>
       )}
       {step === 1 && (
@@ -136,7 +131,7 @@ export function LiveOnboarding({ session, profile, onDone, toast }) {
           <Body size={12.5} dim style={{ marginTop: 2 }}>Didn’t get it? Check spam — or send it again.</Body>
           <Row gap={8} style={{ marginTop: 6 }}>
             <Btn ghost onClick={() => setStep(0)}>Change email</Btn>
-            <Btn primary onClick={sendMagicLink}>{busy ? "Sending…" : "Resend link"}</Btn>
+            <Btn primary disabled={busy} onClick={sendMagicLink}>{busy ? "Sending…" : "Resend link"}</Btn>
           </Row>
         </Col>
       )}

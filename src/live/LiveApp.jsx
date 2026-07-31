@@ -1,6 +1,6 @@
 import React from "react";
 import { supabase } from "../lib/supabase.js";
-import { cleanCut } from "../lib/format.js";
+import { cleanCut, errMsg } from "../lib/format.js";
 import { tpTheme } from "../theme.js";
 import { TabBar, Toast, Body, SkeletonScreen, ErrorState } from "../components/atoms.jsx";
 import { SettingsSheet } from "../components/SettingsSheet.jsx";
@@ -421,7 +421,7 @@ export default function LiveApp() {
         instagram: ig || null,
       };
       const { error } = await supabase.from("profiles").update(clean).eq("id", uid);
-      if (error) return toast(error.message);
+      if (error) return toast(errMsg(error));
       setEditingProfile(false); toast("Profile saved ✓"); refresh();
     },
     replayOnboarding: async () => { setSettingsOpen(false); await supabase.auth.signOut(); setOnboardingDone(false); },
@@ -432,7 +432,7 @@ export default function LiveApp() {
       if (!uid) return;
       const { error } = await supabase.from("event_players")
         .insert({ event_id: eventId, player_id: uid, status: "requested", paid: false });
-      if (error) return toast(error.message);
+      if (error) return toast(errMsg(error));
       toast("Request sent — the host will review it ✋");
       refresh();
     },
@@ -440,14 +440,14 @@ export default function LiveApp() {
     approveJoin: async (eventId, playerId) => {
       const { error } = await supabase.from("event_players")
         .update({ status: "approved" }).eq("event_id", eventId).eq("player_id", playerId);
-      if (error) return toast(error.message);
+      if (error) return toast(errMsg(error));
       toast("Approved — they can pay now ✓");
       refresh();
     },
     rejectJoin: async (eventId, playerId) => {
       const { error } = await supabase.from("event_players")
         .update({ status: "rejected" }).eq("event_id", eventId).eq("player_id", playerId);
-      if (error) return toast(error.message);
+      if (error) return toast(errMsg(error));
       toast("Request declined");
       refresh();
     },
@@ -492,7 +492,7 @@ export default function LiveApp() {
       const c = S.live?.courts.find((x) => x.yours);
       if (!c) return;
       const { data, error } = await supabase.rpc("finish_match", { p_match_id: c.id });
-      if (error) return toast(error.message);
+      if (error) return toast(errMsg(error));
       const my = c.mySide === "A" ? c.teamA : c.teamB;
       const opp = c.mySide === "A" ? c.teamB : c.teamA;
       setMatchResult({
