@@ -18,6 +18,18 @@ const initials = initialsOf;
 const fmt = (iso, withTime = true) =>
   iso ? new Date(iso).toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", ...(withTime ? { hour: "2-digit", minute: "2-digit" } : {}) }) : "—";
 
+// phone/tablet-portrait layout: the sidebar becomes a sticky top bar
+function useNarrow(bp = 800) {
+  const [narrow, setNarrow] = React.useState(() => window.matchMedia(`(max-width: ${bp}px)`).matches);
+  React.useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${bp}px)`);
+    const fn = (e) => setNarrow(e.matches);
+    mq.addEventListener("change", fn);
+    return () => mq.removeEventListener("change", fn);
+  }, [bp]);
+  return narrow;
+}
+
 const EVENT_TYPES = ["Americano", "Mexicano", "League", "King of the Hill", "Knockout", "Mixicano"];
 const EVENT_STATUS = ["open", "live", "paused", "done", "cancelled"];
 const PAY_COLORS = { paid: "var(--success)", pending: "var(--warning)", expired: "var(--text2)", failed: "var(--danger)" };
@@ -360,6 +372,7 @@ export default function AdminConsole() {
   };
 
   // ---- gates ----
+  const narrow = useNarrow();
   const theme = tpTheme(THEME);
   const wrap = (children) => (
     <div style={{ ...theme, minHeight: "100dvh", background: "var(--bg)", color: "var(--text)", fontFamily: "var(--font-body)" }}>{children}</div>
@@ -410,29 +423,51 @@ export default function AdminConsole() {
   const demoMatches = db.matches.filter((m) => m.event_id === demoEvent);
 
   return wrap(
-    <div style={{ display: "flex", minHeight: "100dvh" }}>
-      {/* sidebar */}
-      <aside style={{ width: 210, flexShrink: 0, borderRight: "1px solid var(--line)", padding: 16, display: "flex", flexDirection: "column", gap: 4, position: "sticky", top: 0, height: "100dvh", boxSizing: "border-box" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-          <CourtBadge size={30} radius={9} />
-          <b style={{ fontFamily: "var(--font-display)" }}>Admin</b>
-        </div>
-        {TABS.map(([k, label, ic]) => (
-          <button key={k} onClick={() => setTab(k)} style={{
-            ...btn(tab === k ? "var(--accent)" : "transparent"), justifyContent: "flex-start", gap: 9,
-            color: tab === k ? "var(--accent-ink)" : "var(--text)", fontWeight: tab === k ? 700 : 500,
-          }}><Icon name={ic} size={15} />{label}</button>
-        ))}
-        <div style={{ marginTop: "auto", fontSize: 12, color: "var(--text2)" }}>
-          <div style={{ marginBottom: 8 }}>{me.full_name || session.user.email}</div>
-          <a href="/" style={{ color: "var(--text2)", display: "block", marginBottom: 6 }}>← Back to app</a>
-          <a href="/GUIDE.pdf" download style={{ color: "var(--text2)", display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}><Icon name="doc" size={13} /> Download Guide</a>
-          <button onClick={() => supabase.auth.signOut()} style={{ ...btn("var(--surface)"), padding: "7px 10px", fontSize: 12 }}>Sign out</button>
-        </div>
-      </aside>
+    <div style={{ display: "flex", flexDirection: narrow ? "column" : "row", minHeight: "100dvh" }}>
+      {narrow ? (
+        /* top bar: brand + account row, then horizontally scrollable tabs */
+        <header style={{ position: "sticky", top: 0, zIndex: 20, background: "var(--bg-solid)", borderBottom: "1px solid var(--line)", padding: "10px 12px 0" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <CourtBadge size={26} radius={8} />
+            <b style={{ fontFamily: "var(--font-display)" }}>Admin</b>
+            <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--text2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 130 }}>{me.full_name || session.user.email}</span>
+            <a href="/" style={{ color: "var(--text2)", fontSize: 12, whiteSpace: "nowrap" }}>← App</a>
+            <button onClick={() => supabase.auth.signOut()} style={{ ...btn("var(--surface)"), padding: "5px 9px", fontSize: 12 }}>Sign out</button>
+          </div>
+          <div className="tp-scroll" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8 }}>
+            {TABS.map(([k, label, ic]) => (
+              <button key={k} onClick={() => setTab(k)} style={{
+                ...btn(tab === k ? "var(--accent)" : "var(--surface)"), padding: "7px 12px", fontSize: 13, gap: 7,
+                flex: "0 0 auto", whiteSpace: "nowrap",
+                color: tab === k ? "var(--accent-ink)" : "var(--text)", fontWeight: tab === k ? 700 : 500,
+              }}><Icon name={ic} size={14} />{label}</button>
+            ))}
+          </div>
+        </header>
+      ) : (
+        /* sidebar */
+        <aside style={{ width: 210, flexShrink: 0, borderRight: "1px solid var(--line)", padding: 16, display: "flex", flexDirection: "column", gap: 4, position: "sticky", top: 0, height: "100dvh", boxSizing: "border-box" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+            <CourtBadge size={30} radius={9} />
+            <b style={{ fontFamily: "var(--font-display)" }}>Admin</b>
+          </div>
+          {TABS.map(([k, label, ic]) => (
+            <button key={k} onClick={() => setTab(k)} style={{
+              ...btn(tab === k ? "var(--accent)" : "transparent"), justifyContent: "flex-start", gap: 9,
+              color: tab === k ? "var(--accent-ink)" : "var(--text)", fontWeight: tab === k ? 700 : 500,
+            }}><Icon name={ic} size={15} />{label}</button>
+          ))}
+          <div style={{ marginTop: "auto", fontSize: 12, color: "var(--text2)" }}>
+            <div style={{ marginBottom: 8 }}>{me.full_name || session.user.email}</div>
+            <a href="/" style={{ color: "var(--text2)", display: "block", marginBottom: 6 }}>← Back to app</a>
+            <a href="/GUIDE.pdf" download style={{ color: "var(--text2)", display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}><Icon name="doc" size={13} /> Download Guide</a>
+            <button onClick={() => supabase.auth.signOut()} style={{ ...btn("var(--surface)"), padding: "7px 10px", fontSize: 12 }}>Sign out</button>
+          </div>
+        </aside>
+      )}
 
       {/* main */}
-      <main style={{ flex: 1, padding: 24, overflowX: "auto" }}>
+      <main style={{ flex: 1, padding: narrow ? 14 : 24, overflowX: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
           <h1 style={{ fontFamily: "var(--font-display)", margin: 0, textTransform: "capitalize" }}>{tab}</h1>
           <button onClick={load} style={{ ...btn("var(--surface)"), padding: "8px 14px" }}>↻ Refresh</button>
