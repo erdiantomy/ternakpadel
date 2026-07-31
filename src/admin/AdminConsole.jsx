@@ -419,7 +419,7 @@ export default function AdminConsole() {
         {TABS.map(([k, label, ic]) => (
           <button key={k} onClick={() => setTab(k)} style={{
             ...btn(tab === k ? "var(--accent)" : "transparent"), justifyContent: "flex-start", gap: 9,
-            color: tab === k ? "#000" : "var(--text)", fontWeight: tab === k ? 700 : 500,
+            color: tab === k ? "var(--accent-ink)" : "var(--text)", fontWeight: tab === k ? 700 : 500,
           }}><span>{ic}</span>{label}</button>
         ))}
         <div style={{ marginTop: "auto", fontSize: 12, color: "var(--text2)" }}>
@@ -466,7 +466,7 @@ export default function AdminConsole() {
           <>
             <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center", flexWrap: "wrap" }}>
               {["all", "paid", "pending", "expired", "failed"].map((s) => (
-                <button key={s} onClick={() => setPayFilter(s)} style={{ ...btn(payFilter === s ? "var(--accent)" : "var(--surface)"), padding: "6px 12px", fontSize: 13, color: payFilter === s ? "#000" : "var(--text)", textTransform: "capitalize" }}>{s}</button>
+                <button key={s} onClick={() => setPayFilter(s)} style={{ ...btn(payFilter === s ? "var(--accent)" : "var(--surface)"), padding: "6px 12px", fontSize: 13, color: payFilter === s ? "var(--accent-ink)" : "var(--text)", textTransform: "capitalize" }}>{s}</button>
               ))}
               <select value={payEvent} onChange={(e) => setPayEvent(e.target.value)} style={{ ...inp, padding: "6px 10px", marginLeft: "auto", maxWidth: 260 }}>
                 <option value="all">All sessions</option>
@@ -737,7 +737,7 @@ export default function AdminConsole() {
       </main>
 
       {toastMsg && (
-        <div style={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", background: "var(--text)", color: "var(--bg)", padding: "10px 18px", borderRadius: 10, fontWeight: 600, zIndex: 50 }}>{toastMsg}</div>
+        <div style={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", background: "var(--text)", color: "var(--bg-solid)", padding: "10px 18px", borderRadius: 10, fontWeight: 600, zIndex: 50, maxWidth: "min(92vw, 480px)" }}>{toastMsg}</div>
       )}
     </div>
   );
@@ -772,7 +772,7 @@ function Stat({ label, value }) {
   );
 }
 function Av({ name }) {
-  return <span style={{ display: "inline-flex", width: 22, height: 22, borderRadius: "50%", background: "var(--accent)", color: "#000", fontSize: 10, fontWeight: 700, alignItems: "center", justifyContent: "center", marginRight: 6, verticalAlign: "middle" }}>{initials(name)}</span>;
+  return <span style={{ display: "inline-flex", width: 22, height: 22, borderRadius: "50%", background: "var(--accent)", color: "var(--accent-ink)", fontSize: 10, fontWeight: 700, alignItems: "center", justifyContent: "center", marginRight: 6, verticalAlign: "middle" }}>{initials(name)}</span>;
 }
 function Switch({ on, onClick }) {
   return (

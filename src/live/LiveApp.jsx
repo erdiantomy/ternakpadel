@@ -2,7 +2,7 @@ import React from "react";
 import { supabase } from "../lib/supabase.js";
 import { cleanCut } from "../lib/format.js";
 import { tpTheme } from "../theme.js";
-import { TabBar, Toast, Body } from "../components/atoms.jsx";
+import { TabBar, Toast, Body, SkeletonScreen, ErrorState } from "../components/atoms.jsx";
 import { SettingsSheet } from "../components/SettingsSheet.jsx";
 import { HomeScreen, EventsScreen, EventDetail } from "../screens/HomeEvents.jsx";
 import { MatchesScreen, ScorerOverlay, RankingsScreen } from "../screens/LiveRank.jsx";
@@ -87,6 +87,9 @@ export default function LiveApp() {
     profile: null, profiles: [], events: [], eventPlayers: [], posts: [], likes: [],
     points: [], rankHistory: [], badgeCatalog: [], myBadges: [], matches: [], seasons: [],
   });
+  // first-load lifecycle: loading → ready | error. Stays "ready" once data has
+  // landed so background refreshes never flash the skeleton again.
+  const [loadState, setLoadState] = React.useState("loading");
 
   const toastTimer = React.useRef(null);
   const toast = React.useCallback((msg) => {
@@ -106,11 +109,7 @@ export default function LiveApp() {
   const refresh = React.useCallback(async () => {
     const uid = (await supabase.auth.getUser()).data.user?.id;
     if (!uid) return;
-    const [
-      { data: profile }, { data: profiles }, { data: events }, { data: eventPlayers },
-      { data: posts }, { data: likes }, { data: points }, { data: rankHistory },
-      { data: badgeCatalog }, { data: myBadges }, { data: matches }, { data: seasons },
-    ] = await Promise.all([
+    const results = await Promise.all([
       supabase.from("profiles").select("*").eq("id", uid).single(),
       supabase.from("profiles_public").select("id,full_name,username,is_host"),
       // demo events (and their results) stay hidden from players until an admin
@@ -126,6 +125,18 @@ export default function LiveApp() {
       supabase.from("matches").select("*").order("court"),
       supabase.from("seasons").select("*").order("id", { ascending: false }),
     ]);
+    // A brand-new user's profile .single() legitimately errors, so only treat
+    // the load as failed when every query errored (network down / API down) —
+    // otherwise a fetch failure would be indistinguishable from empty data.
+    if (results.every((r) => r.error)) {
+      setLoadState((s) => (s === "ready" ? "ready" : "error"));
+      return;
+    }
+    const [
+      { data: profile }, { data: profiles }, { data: events }, { data: eventPlayers },
+      { data: posts }, { data: likes }, { data: points }, { data: rankHistory },
+      { data: badgeCatalog }, { data: myBadges }, { data: matches }, { data: seasons },
+    ] = results;
     // matches load globally; drop any that belong to a demo event (not in the
     // visible events list) so a demo court can never leak into the player app.
     const visibleEventIds = new Set((events || []).map((e) => e.id));
@@ -136,9 +147,17 @@ export default function LiveApp() {
       matches: (matches || []).filter((m) => visibleEventIds.has(m.event_id)),
       seasons: seasons || [],
     });
+    setLoadState("ready");
   }, []);
 
   React.useEffect(() => { if (session) refresh(); }, [session, refresh]);
+
+  // coming back online: retry the load automatically
+  React.useEffect(() => {
+    const onUp = () => { if (session) refresh(); };
+    window.addEventListener("online", onUp);
+    return () => window.removeEventListener("online", onUp);
+  }, [session, refresh]);
 
   // persist the current nav position so a refresh restores it (see NAV_KEY)
   React.useEffect(() => {
@@ -581,12 +600,21 @@ export default function LiveApp() {
       }}>
         <div style={{ height: "env(safe-area-inset-top)", flex: "0 0 auto" }} />
         <div style={{ flex: 1, overflowY: "auto", position: "relative" }}>
-          {tab === "home" && <HomeScreen S={S} A={A} layout={t.homeLayout} />}
-          {tab === "events" && !ev && <EventsScreen S={S} A={A} />}
-          {tab === "events" && ev && <EventDetail S={S} A={A} ev={ev} />}
-          {tab === "matches" && <MatchesScreen S={S} A={A} />}
-          {tab === "rankings" && <RankingsScreen S={S} />}
-          {tab === "profile" && <ProfileScreen S={S} A={A} />}
+          {session && loadState === "loading" && <SkeletonScreen />}
+          {session && loadState === "error" && (
+            <ErrorState offline={!navigator.onLine}
+              onRetry={() => { setLoadState("loading"); refresh(); }} />
+          )}
+          {(!session || loadState === "ready") && (
+            <React.Fragment>
+              {tab === "home" && <HomeScreen S={S} A={A} layout={t.homeLayout} />}
+              {tab === "events" && !ev && <EventsScreen S={S} A={A} />}
+              {tab === "events" && ev && <EventDetail S={S} A={A} ev={ev} />}
+              {tab === "matches" && <MatchesScreen S={S} A={A} />}
+              {tab === "rankings" && <RankingsScreen S={S} />}
+              {tab === "profile" && <ProfileScreen S={S} A={A} />}
+            </React.Fragment>
+          )}
         </div>
         <TabBar tab={tab} setTab={A.setTab} onFab={S.isManager ? () => setCreating(true) : undefined} />
         <CreateSheet S={S} A={A} />

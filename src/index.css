@@ -9,6 +9,7 @@ button { -webkit-tap-highlight-color: transparent; }
 ::selection { background: #C4F22E; color: #0A0F26; }
 
 @keyframes tpFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tpShimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @keyframes tpUp { from { transform: translateY(26px); opacity: 0.4; } to { transform: translateY(0); opacity: 1; } }
 @keyframes tpPop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @keyframes tpPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }

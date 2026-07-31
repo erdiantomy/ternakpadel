@@ -153,7 +153,7 @@ export function RankingsScreen({ S }) {
               background: i === 1 ? "var(--accent)" : "var(--surface2)",
               display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 6,
             }}>
-              <Num size={17} color={i === 1 ? "#0a0a0a" : "var(--text2)"}>{i === 1 ? 1 : i === 0 ? 2 : 3}</Num>
+              <Num size={17} color={i === 1 ? "var(--accent-ink)" : "var(--text2)"}>{i === 1 ? 1 : i === 0 ? 2 : 3}</Num>
             </div>
           </Col>
         ))}

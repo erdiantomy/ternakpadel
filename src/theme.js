@@ -18,6 +18,32 @@ export const TP_ACCENTS = ["#C4F22E", "#3D49E3", "#2EAEFF", "#FF6B00"];
 // Fixed brand colors (independent of the user's accent choice).
 export const TP_BRAND = { blue: "#3D49E3", lime: "#C4F22E", navy: "#0A0F26" };
 
+// ---- contrast helpers ----
+// The accent is user-selectable, so nothing painted on it (or with it) can
+// assume lime: ink and text colors are computed from the actual accent.
+function chan(hex, i) {
+  const v = parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16) / 255;
+  return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+}
+function lum(hex) { return 0.2126 * chan(hex, 0) + 0.7152 * chan(hex, 1) + 0.0722 * chan(hex, 2); }
+function contrast(a, b) {
+  const [hi, lo] = lum(a) > lum(b) ? [lum(a), lum(b)] : [lum(b), lum(a)];
+  return (hi + 0.05) / (lo + 0.05);
+}
+function mixWhite(hex, t) {
+  const c = (i) => Math.round(parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16) * (1 - t) + 255 * t);
+  return "#" + [0, 1, 2].map((i) => c(i).toString(16).padStart(2, "0")).join("");
+}
+// Ink color for text/icons sitting ON the accent (buttons, FAB, podium…).
+function accentInk(accent) { return contrast(accent, "#0a0a0a") >= contrast(accent, "#ffffff") ? "#0a0a0a" : "#ffffff"; }
+// Accent used AS text on the background: lighten until it reads (dark mode's
+// royal blue was near-invisible on navy).
+function accentOnBg(accent, bg) {
+  let c = accent;
+  for (let i = 0; i < 8 && contrast(c, bg) < 4.5; i++) c = mixWhite(c, 0.14);
+  return c;
+}
+
 // The court-cage texture that sits behind the app field — a faint royal-blue net
 // grid lit by a stadium glow from above. Built as a layered CSS background so it
 // rides along anywhere `var(--bg)` is painted, touching no layout.
@@ -41,7 +67,8 @@ export function tpTheme(t) {
   return {
     "--accent": t.accent,
     "--accent-soft": t.accent + (dark ? "2e" : "22"),
-    "--accent-text": dark ? t.accent : TP_BRAND.blue,
+    "--accent-ink": accentInk(t.accent),
+    "--accent-text": dark ? accentOnBg(t.accent, "#0A0F26") : TP_BRAND.blue,
     "--brand": TP_BRAND.blue,
     "--brand-soft": dark ? "rgba(61,73,227,0.18)" : "rgba(61,73,227,0.12)",
     "--lime": TP_BRAND.lime,

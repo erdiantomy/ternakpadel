@@ -77,7 +77,7 @@ export function Btn({ children, primary, ghost, onClick, full, danger, small, st
     <button onClick={onClick} style={{
       width: full ? "100%" : undefined,
       background: primary ? "var(--accent)" : danger ? "var(--danger)" : ghost ? "transparent" : "var(--surface2)",
-      color: primary ? "#0a0a0a" : danger ? "#fff" : "var(--text)",
+      color: primary ? "var(--accent-ink)" : danger ? "#fff" : "var(--text)",
       // ghost reads as a royal-blue "cage" outline, the logo's framing motif
       border: ghost ? "1.5px solid var(--cage)" : "none",
       borderRadius: small ? "var(--radius-sm)" : "var(--radius)",
@@ -103,7 +103,7 @@ export function Seg({ options, value, onChange }) {
         <button key={o} onClick={() => onChange(o)} style={{
           flex: 1, border: "none", borderRadius: 11, padding: "7px 4px",
           background: value === o ? "var(--accent)" : "transparent",
-          color: value === o ? "#0a0a0a" : "var(--text2)",
+          color: value === o ? "var(--accent-ink)" : "var(--text2)",
           fontFamily: "var(--font-display)", fontSize: 12.5, fontWeight: 700, cursor: "pointer",
           textTransform: "capitalize",
           boxShadow: value === o ? "0 2px 8px var(--accent-soft)" : "none",
@@ -165,6 +165,66 @@ export function Bars({ vals, h = 44, hi = -1 }) {
         }} />
       ))}
     </div>
+  );
+}
+
+// Shimmer placeholder shown while first data loads
+export function Skeleton({ w = "100%", h = 14, r, style }) {
+  return (
+    <div style={{
+      width: w, height: h, borderRadius: r != null ? r : 8, flex: "0 0 auto",
+      background: "linear-gradient(90deg, var(--surface2) 25%, var(--line) 50%, var(--surface2) 75%)",
+      backgroundSize: "200% 100%", animation: "tpShimmer 1.4s ease-in-out infinite",
+      ...style,
+    }} />
+  );
+}
+
+// Generic first-load layout: title + hero card + a few list rows
+export function SkeletonScreen() {
+  return (
+    <Col gap={14} style={{ padding: "calc(14px * var(--sp)) 16px 90px" }}>
+      <Skeleton w={150} h={26} />
+      <Card>
+        <Col gap={10}>
+          <Skeleton w="55%" h={17} />
+          <Skeleton w="80%" h={13} />
+          <Skeleton h={40} r={12} style={{ marginTop: 4 }} />
+        </Col>
+      </Card>
+      <Skeleton w={110} h={15} style={{ marginTop: 6 }} />
+      {[0, 1, 2].map((i) => (
+        <Card key={i} pad={12}>
+          <Row gap={10}>
+            <Skeleton w={36} h={36} r="50%" />
+            <Col gap={6} style={{ flex: 1 }}>
+              <Skeleton w="45%" h={13} />
+              <Skeleton w="70%" h={11} />
+            </Col>
+          </Row>
+        </Card>
+      ))}
+    </Col>
+  );
+}
+
+// Full-screen fetch-failure state with a retry action
+export function ErrorState({ offline, onRetry }) {
+  return (
+    <Col gap={12} style={{ height: "100%", alignItems: "center", justifyContent: "center", padding: 28, textAlign: "center" }}>
+      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+        {offline
+          ? <path d="M1.5 8.5a15 15 0 0 1 21 0M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0M12 19h.01M2 2l20 20" />
+          : <path d="M12 8v5m0 3.5h.01M10.3 3.6 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.6a2 2 0 0 0-3.4 0Z" />}
+      </svg>
+      <Disp size={19}>{offline ? "Kamu sedang offline" : "Gagal memuat data"}</Disp>
+      <Body size={13.5} dim style={{ maxWidth: 260 }}>
+        {offline
+          ? "Periksa koneksi internetmu — data akan dimuat ulang otomatis saat kembali online."
+          : "Ada masalah saat mengambil data. Coba lagi sebentar lagi."}
+      </Body>
+      {onRetry && <Btn small primary onClick={onRetry} style={{ marginTop: 6 }}>Coba lagi</Btn>}
+    </Col>
   );
 }
 
@@ -251,7 +311,7 @@ export function TabBar({ tab, setTab, onFab }) {
         boxShadow: "0 8px 22px var(--accent-soft), 0 4px 14px rgba(5,8,22,0.5)",
         display: "flex", alignItems: "center", justifyContent: "center",
       }}>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" strokeWidth="2.6" strokeLinecap="round">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ stroke: "var(--accent-ink)" }} strokeWidth="2.6" strokeLinecap="round">
           <path d="M12 5v14M5 12h14" />
         </svg>
       </button>}
