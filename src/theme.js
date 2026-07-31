@@ -11,6 +11,24 @@ export const TP_FONTS = {
   grotesk: { label: "Space Grotesk (technical)", display: "'Space Grotesk', sans-serif", body: "'IBM Plex Sans', sans-serif", dWeight: 700, dSpacing: "-0.01em", dTransform: "none" },
 };
 
+// The alternate type pairings load on demand — index.html ships only the
+// default Baloo 2 + Inter pairing.
+const FONT_URLS = {
+  barlow: "https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&family=Barlow+Condensed:wght@600;700&display=swap",
+  grotesk: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;600&display=swap",
+};
+const fontsLoaded = new Set();
+export function ensureFonts(fontKey) {
+  const url = FONT_URLS[fontKey];
+  if (!url || fontsLoaded.has(fontKey)) return;
+  fontsLoaded.add(fontKey);
+  if (document.querySelector(`link[href="${url}"]`)) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = url;
+  document.head.appendChild(link);
+}
+
 // Tennis-lime first (the default brand accent — black text reads on it), then
 // royal court blue, sky, and a warm option.
 export const TP_ACCENTS = ["#C4F22E", "#3D49E3", "#2EAEFF", "#FF6B00"];

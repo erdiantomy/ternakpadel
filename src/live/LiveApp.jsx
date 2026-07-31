@@ -1,7 +1,7 @@
 import React from "react";
 import { supabase } from "../lib/supabase.js";
 import { cleanCut, errMsg, initialsOf, firstName } from "../lib/format.js";
-import { tpTheme } from "../theme.js";
+import { tpTheme, ensureFonts } from "../theme.js";
 import { TabBar, Toast, Body, SkeletonScreen, ErrorState } from "../components/atoms.jsx";
 import { SettingsSheet } from "../components/SettingsSheet.jsx";
 import { HomeScreen, EventsScreen, EventDetail } from "../screens/HomeEvents.jsx";
@@ -584,6 +584,10 @@ export default function LiveApp() {
     document.body.style.background = letterbox;
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#0A0F26" : "#F2F5FC");
   }, [dark, letterbox]);
+
+  // non-default type pairings are fetched the moment they're selected (or on
+  // load, for a persisted choice)
+  React.useEffect(() => { ensureFonts(t.font); }, [t.font]);
 
   // each tab is its own surface: reset scroll when switching (it used to
   // carry the previous tab's scroll position over)
