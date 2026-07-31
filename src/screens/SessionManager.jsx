@@ -2,7 +2,7 @@ import React from "react";
 import { supabase } from "../lib/supabase.js";
 import { Disp, Body, Num, Card, Ava, Pill, Btn, Seg, Row, Col, SecHead } from "../components/atoms.jsx";
 import { courtName } from "../lib/courts.js";
-import { sessionConfig, buildRound, matchComplete } from "../lib/session.js";
+import { sessionConfig, buildRound, matchComplete, sessionStandings } from "../lib/session.js";
 
 // Organizer's self-service session console. Lives entirely in the player app —
 // no admin "go live" required. The event creator (or any host/admin) can:
@@ -74,15 +74,16 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
   // previous generation. Falls back to the roster for the very first round.
   const playedIds = [...new Set(matches.flatMap((m) => [...m.team_a, ...m.team_b]))];
 
-  // points-mode standings (sum of each player's team score across the session)
-  const standingsIds = React.useMemo(() => {
-    const acc = {};
-    for (const m of matches) {
-      for (const pid of m.team_a) acc[pid] = (acc[pid] || 0) + m.score_a;
-      for (const pid of m.team_b) acc[pid] = (acc[pid] || 0) + m.score_b;
-    }
-    return Object.entries(acc).sort((a, b) => b[1] - a[1]).map(([id]) => id);
-  }, [matches]);
+  // live leaderboard — ordered by the session's scoring mode (points/ranking).
+  // Also seeds the next mexicano round.
+  const standings = React.useMemo(() => sessionStandings(matches, draft), [matches, draft]);
+  const standingsIds = React.useMemo(() => standings.map((r) => r.id), [standings]);
+
+  // a finished session locks scores & schedule; flipping status back reopens it
+  const locked = ev?.status === "done";
+  const planDone = matches.length > 0 && lastRound >= draft.rounds;
+  const allScored = matches.length > 0 && matches.every((m) =>
+    matchComplete({ score_a: m.score_a, score_b: m.score_b, target: m.target, targetMode: draft.targetMode }));
 
   // auto-load the reclub roster names into the lineup the first time this session
   // is opened — no manual import / re-typing. Each name gets a stable id so it
@@ -179,6 +180,7 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
   };
 
   const generateNext = async () => {
+    if (locked) return toast("Session finished — set status back to Live to reopen");
     const round = lastRound + 1;
     if (round > draft.rounds) {
       if (!window.confirm(`That's past your ${draft.rounds}-round plan. Generate round ${round} anyway?`)) return;
@@ -189,7 +191,20 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
     if (await insertRound(round, draft, baseIds)) { toast("Round " + round + " generated 🎾"); refresh(); }
   };
 
+  // lock the session: scores freeze and the final board feeds the club board
+  const finishSession = async () => {
+    if (!window.confirm("Finish this session? Scoring locks and the final leaderboard starts counting toward the club (all-time) board. You can reopen it from the status pills.")) return;
+    await setStatus("done");
+  };
+
+  const shareBoard = async () => {
+    const url = `${window.location.origin}/board/${eventId}`;
+    try { await navigator.clipboard.writeText(url); toast("Leaderboard link copied — anyone can watch, no login 📋"); }
+    catch { toast(url); }
+  };
+
   const regenerateAll = async () => {
+    if (locked) return toast("Session finished — set status back to Live to reopen");
     if (!window.confirm("Recompute the whole schedule? This deletes ALL existing matches and their scores for this session.")) return;
     await persistConfig({
       format: draft.format, fixedPartner: draft.fixedPartner, scoreMode: draft.scoreMode,
@@ -202,6 +217,7 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
   };
 
   const clearRound = async (round) => {
+    if (locked) return toast("Session finished — set status back to Live to reopen");
     if (!window.confirm("Delete round " + round + " and its scores?")) return;
     const { error } = await supabase.from("matches").delete().eq("event_id", eventId).eq("round", round);
     if (error) return toast(error.message);
@@ -209,6 +225,7 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
   };
 
   const score = async (m, side, d) => {
+    if (locked) return toast("Session finished — set status back to Live to edit scores");
     const col = side === "A" ? "score_a" : "score_b";
     const val = Math.max(0, m[col] + d);
     await supabase.from("matches").update({ [col]: val }).eq("id", m.id);
@@ -277,8 +294,35 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
               <Pill small on={ev.status === "paused"} onClick={() => setStatus("paused")}>Pause</Pill>
               <Pill small on={ev.status === "done"} onClick={() => setStatus("done")}>Finish</Pill>
             </Row>
-            <Body size={11} dim style={{ marginTop: 8 }}>Players can score anytime — status doesn't lock anything.</Body>
+            <Body size={11} dim style={{ marginTop: 8 }}>
+              {locked
+                ? "Finished — scores & schedule are locked and the final board counts toward the club board. Tap Live to reopen."
+                : "Players can score anytime. Finish locks the leaderboard."}
+            </Body>
           </Card>
+
+          {/* live leaderboard — always visible, shareable, locks on Finish */}
+          <SecHead right={locked ? "final 🔒" : "live ↻"}>Leaderboard</SecHead>
+          <Card pad={8}>
+            {standings.length === 0 && (
+              <Body size={12.5} dim style={{ padding: "6px 8px" }}>
+                Standings appear here live as scores come in.
+              </Body>
+            )}
+            {standings.map((r, i) => (
+              <Row key={r.id} gap={10} style={{
+                padding: "7px 8px", borderRadius: 10,
+                background: locked && i === 0 ? "var(--accent-soft)" : "transparent",
+              }}>
+                <Num size={14} style={{ width: 20 }} color={i < 3 ? "var(--accent-text)" : "var(--text2)"}>{i + 1}</Num>
+                <Ava ini={initialsOf(nameOf(r.id))} d={26} />
+                <Body size={13.5} bold={i === 0} style={{ flex: 1, minWidth: 0 }}>{nameOf(r.id)}</Body>
+                <Body size={11.5} dim>{r.wins}W · {r.played}P</Body>
+                <Num size={14}>{r.pts}</Num>
+              </Row>
+            ))}
+          </Card>
+          <Btn small full ghost onClick={shareBoard}>🔗 Share {locked ? "final" : "live"} leaderboard</Btn>
 
           {/* format settings — editable after generate */}
           <SecHead>Format settings</SecHead>
@@ -336,24 +380,58 @@ export function SessionManager({ eventId, db, uid, refresh, toast, onClose }) {
           <AddPlayer onAdd={addPlayer} />
 
           {/* rounds & matches */}
-          <SecHead right={lastRound ? "round " + lastRound : "none yet"}>Schedule</SecHead>
-          <Btn primary full onClick={generateNext}>+ Generate round {lastRound + 1}</Btn>
+          <SecHead right={lastRound ? "round " + lastRound + "/" + draft.rounds : "none yet"}>Schedule</SecHead>
+          {!locked && rounds.length === 0 && (
+            <Btn primary full onClick={generateNext}>+ Generate round 1</Btn>
+          )}
           {rounds.map((r) => {
             const rm = matches.filter((m) => m.round === r);
             return (
               <Col key={r} gap={8}>
                 <Row style={{ justifyContent: "space-between", marginTop: 4 }}>
                   <Body size={12.5} bold>Round {r}</Body>
-                  <button onClick={() => clearRound(r)} style={{ background: "none", border: "none", color: "var(--text2)", fontSize: 12, cursor: "pointer" }}>clear</button>
+                  {!locked && <button onClick={() => clearRound(r)} style={{ background: "none", border: "none", color: "var(--text2)", fontSize: 12, cursor: "pointer" }}>clear</button>}
                 </Row>
                 {rm.map((m, i) => (
-                  <MatchRow key={m.id} m={m} cfg={draft} roster={roster} nameOf={nameOf}
+                  <MatchRow key={m.id} m={m} cfg={draft} roster={roster} nameOf={nameOf} locked={locked}
                     first={i === 0} last={i === rm.length - 1}
                     onScore={score} onMove={move} onSwap={swapSlot} />
                 ))}
               </Col>
             );
           })}
+
+          {/* next-round / finish controls sit BELOW the last round so the
+              organizer never has to scroll back up between rounds */}
+          {!locked && rounds.length > 0 && !planDone && (
+            <Btn primary full onClick={generateNext}>+ Generate round {lastRound + 1}</Btn>
+          )}
+          {!locked && planDone && (
+            <Card pad={14} accent>
+              <Col gap={10}>
+                <Body size={13.5} bold>All {draft.rounds} rounds generated 🎾</Body>
+                <Body size={12} dim>
+                  {allScored
+                    ? "Every match hit its target. Finish to lock the final leaderboard — it then counts toward the club board."
+                    : "Some matches haven't reached their target yet — finish anyway, or keep scoring."}
+                </Body>
+                <Btn primary full onClick={finishSession}>🏁 Finish session & lock leaderboard</Btn>
+                <Row gap={8}>
+                  <Btn small full ghost onClick={generateNext}>+ Extra round {lastRound + 1}</Btn>
+                  <Btn small full ghost onClick={shareBoard}>🔗 Share leaderboard</Btn>
+                </Row>
+              </Col>
+            </Card>
+          )}
+          {locked && (
+            <Card pad={14}>
+              <Col gap={10}>
+                <Body size={13.5} bold>Session finished 🔒</Body>
+                <Body size={12} dim>The leaderboard above is final and counts toward the club (all-time) board. Share it, or set status back to Live to reopen scoring.</Body>
+                <Btn primary full onClick={shareBoard}>🔗 Share final leaderboard</Btn>
+              </Col>
+            </Card>
+          )}
         </Col>
       </div>
     </div>
@@ -412,10 +490,12 @@ function AddPlayer({ onAdd }) {
   );
 }
 
-function MatchRow({ m, cfg, roster, nameOf, first, last, onScore, onMove, onSwap }) {
+function MatchRow({ m, cfg, roster, nameOf, locked, first, last, onScore, onMove, onSwap }) {
   const [swap, setSwap] = React.useState(null); // {team,pos}
   const done = matchComplete({ score_a: m.score_a, score_b: m.score_b, target: m.target, targetMode: cfg.targetMode });
-  const slot = (team, pos, id) => (
+  const slot = (team, pos, id) => locked ? (
+    <Body key={"n" + pos} size={13} bold style={{ display: "inline" }}>{nameOf(id)}</Body>
+  ) : (
     <button onClick={() => setSwap({ team, pos })} title="Swap player"
       style={{ background: "none", border: "none", color: "var(--text)", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, cursor: "pointer", textDecoration: "underline dotted", padding: 0 }}>
       {nameOf(id)}
@@ -425,10 +505,10 @@ function MatchRow({ m, cfg, roster, nameOf, first, last, onScore, onMove, onSwap
     <Card pad={12} style={{ borderColor: done ? "var(--accent)" : "var(--line)" }}>
       <Row style={{ justifyContent: "space-between", marginBottom: 8 }}>
         <Body size={11} dim bold style={{ textTransform: "uppercase", letterSpacing: "0.06em" }}>{courtName(m.court)}</Body>
-        <Row gap={4}>
+        {!locked && <Row gap={4}>
           <Btn small ghost onClick={() => onMove(m, -1)} style={{ minWidth: 34, opacity: first ? 0.35 : 1, padding: "6px 8px" }}>↑</Btn>
           <Btn small ghost onClick={() => onMove(m, 1)} style={{ minWidth: 34, opacity: last ? 0.35 : 1, padding: "6px 8px" }}>↓</Btn>
-        </Row>
+        </Row>}
       </Row>
       {[["A", m.team_a, m.score_a], ["B", m.team_b, m.score_b]].map(([team, ids, sc]) => (
         <Row key={team} style={{ justifyContent: "space-between", padding: "6px 0" }}>
@@ -437,14 +517,18 @@ function MatchRow({ m, cfg, roster, nameOf, first, last, onScore, onMove, onSwap
               <React.Fragment key={pos}>{pos > 0 && <Body size={12} dim>/</Body>}{slot(team, pos, id)}</React.Fragment>
             ))}
           </Row>
-          <Row gap={6}>
-            <Btn small ghost onClick={() => onScore(m, team, -1)} style={{ minWidth: 34, padding: "6px 8px" }}>−</Btn>
+          {locked ? (
             <Num size={20} style={{ minWidth: 26, textAlign: "center" }}>{sc}</Num>
-            <Btn small primary onClick={() => onScore(m, team, 1)} style={{ minWidth: 34, padding: "6px 8px" }}>+</Btn>
-          </Row>
+          ) : (
+            <Row gap={6}>
+              <Btn small ghost onClick={() => onScore(m, team, -1)} style={{ minWidth: 34, padding: "6px 8px" }}>−</Btn>
+              <Num size={20} style={{ minWidth: 26, textAlign: "center" }}>{sc}</Num>
+              <Btn small primary onClick={() => onScore(m, team, 1)} style={{ minWidth: 34, padding: "6px 8px" }}>+</Btn>
+            </Row>
+          )}
         </Row>
       ))}
-      {swap && (
+      {swap && !locked && (
         <Card pad={10} style={{ marginTop: 8, background: "var(--surface2)" }}>
           <Body size={11.5} dim bold style={{ marginBottom: 7 }}>Place in {courtName(m.court)} · team {swap.team} slot {swap.pos + 1}</Body>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>

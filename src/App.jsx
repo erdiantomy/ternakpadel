@@ -2,6 +2,7 @@ import React from "react";
 import { supabase } from "./lib/supabase.js";
 import LiveApp from "./live/LiveApp.jsx";
 import AdminConsole from "./admin/AdminConsole.jsx";
+import SessionBoard from "./screens/SessionBoard.jsx";
 
 export default function App() {
   if (!supabase) {
@@ -16,5 +17,8 @@ export default function App() {
   }
   const path = window.location.pathname.replace(/\/+$/, "");
   if (path === "/admin") return <AdminConsole />;
+  // public shareable leaderboard — no login required
+  const board = path.match(/^\/board\/([0-9a-f-]{36})$/i);
+  if (board) return <SessionBoard eventId={board[1]} />;
   return <LiveApp />;
 }

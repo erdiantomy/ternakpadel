@@ -45,7 +45,7 @@ export function MatchesScreen({ S, A }) {
         </Card>
       ))}
 
-      <SecHead right="live ↻">Event standings</SecHead>
+      <SecHead right="live ↻" onRight={() => window.open("/board/" + live.eventId, "_blank")}>Event standings</SecHead>
       <Card pad={8}>
         {S.standings.map((p, i) => (
           <Row key={p.name} gap={10} style={{
@@ -59,6 +59,9 @@ export function MatchesScreen({ S, A }) {
           </Row>
         ))}
       </Card>
+      <Btn small full ghost onClick={() => window.open("/board/" + live.eventId, "_blank")}>
+        🔗 Open shareable leaderboard
+      </Btn>
     </Col>
   );
 }
