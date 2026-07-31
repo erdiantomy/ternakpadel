@@ -236,20 +236,6 @@ export function Spark({ vals, w = 120, h = 36, stroke = 2, style }) {
   );
 }
 
-export function Bars({ vals, h = 44, hi = -1 }) {
-  const max = Math.max(...vals);
-  return (
-    <div style={{ display: "flex", alignItems: "flex-end", gap: 5, height: h }}>
-      {vals.map((v, i) => (
-        <div key={i} style={{
-          flex: 1, height: Math.max(8, (v / max) * 100) + "%", borderRadius: 5,
-          background: i === hi ? "var(--accent)" : "var(--surface2)",
-        }} />
-      ))}
-    </div>
-  );
-}
-
 // Shimmer placeholder shown while first data loads
 export function Skeleton({ w = "100%", h = 14, r, style }) {
   return (

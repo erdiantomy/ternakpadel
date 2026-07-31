@@ -1,15 +1,12 @@
 import React from "react";
 import { supabase } from "../lib/supabase.js";
-import { errMsg } from "../lib/format.js";
+import { errMsg, initialsOf } from "../lib/format.js";
 import { Disp, Body, Card, Ava, Pill, Btn, Row, Col, Input } from "../components/atoms.jsx";
 import { BrandLogo } from "../components/BrandMark.jsx";
 
 // Onboarding: Google sign-in (Supabase OAuth), then profile setup questions.
 // After Google redirects back, a session exists and we resume at the questions;
 // the player's name comes from their Google account.
-
-const initialsOf = (name) =>
-  (name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || "").join("") || "?";
 
 const googleName = (session) =>
   session?.user?.user_metadata?.full_name ||

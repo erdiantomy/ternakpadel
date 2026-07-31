@@ -1,6 +1,6 @@
 import React from "react";
 import { rupiah } from "../lib/format.js";
-import { Disp, Body, Num, Card, Ava, Pill, Btn, Row, Col, SecHead, Sheet, MicroLabel, LiveDot, HeaderPill, StatTile, EmptyState } from "../components/atoms.jsx";
+import { Disp, Body, Num, Card, Ava, Pill, Btn, Row, Col, SecHead, MicroLabel, LiveDot, HeaderPill, StatTile, EmptyState } from "../components/atoms.jsx";
 
 export function FeedItem({ post, onLike }) {
   const kindIcon = { result: "🎾", rank: "📈", badge: "🏅", join: "📅", announcement: "📣" }[post.kind] || "🎾";
@@ -202,8 +202,6 @@ export function EventsScreen({ S, A }) {
   );
 }
 
-const ROSTER_NAMES = { rina: "Rina", eko: "Eko", maya: "Maya", dimas: "Dimas", fitri: "Fitri", bayu: "Bayu", sari: "Sari", andre: "Andre", dina: "Dina", raka: "Raka" };
-
 export function EventDetail({ S, A, ev }) {
   const joined = S.joined[ev.id];
   const status = ev.myStatus || (joined ? "paid" : "none"); // none|requested|approved|paid|rejected
@@ -292,55 +290,5 @@ export function EventDetail({ S, A, ev }) {
         {status === "rejected" && <Btn full ghost onClick={() => A.toast("Your request wasn't approved this time")}>Request not approved</Btn>}
       </Col>
     </Col>
-  );
-}
-
-export function PaySheet({ S, A }) {
-  const ev = S.events.find((e) => e.id === S.paying);
-  const [method, setMethod] = React.useState("QRIS");
-  const [state, setState] = React.useState("pick"); // pick → scanning → done
-  React.useEffect(() => { setState("pick"); setMethod("QRIS"); }, [S.paying]);
-  if (!ev) return null;
-  const methods = ["QRIS", "GoPay", "OVO", "Dana", "Transfer"];
-  return (
-    <Sheet open={!!S.paying} onClose={() => A.closePay()} title={state === "done" ? "" : "Payment"}>
-      {state === "pick" && (
-        <Col gap={12}>
-          <Card pad={12}>
-            <Row style={{ justifyContent: "space-between" }}>
-              <Body size={13.5} bold>{ev.title}</Body>
-              <Num size={16}>{rupiah(ev.fee)}</Num>
-            </Row>
-            <Body size={12} dim style={{ marginTop: 2 }}>{ev.dateLong}</Body>
-          </Card>
-          <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-            {methods.map((m) => <Pill key={m} on={method === m} onClick={() => setMethod(m)}>{m}</Pill>)}
-          </div>
-          <Btn primary full onClick={() => { setState("scanning"); setTimeout(() => setState("done"), 1400); }}>
-            Pay {rupiah(ev.fee)} with {method}
-          </Btn>
-        </Col>
-      )}
-      {state === "scanning" && (
-        <Col gap={14} style={{ alignItems: "center", padding: "10px 0 16px" }}>
-          <div style={{
-            width: 150, height: 150, borderRadius: 14, border: "1px solid var(--line)",
-            background: "repeating-conic-gradient(var(--text) 0% 25%, var(--surface) 0% 50%) 0 0 / 16px 16px",
-            opacity: 0.85,
-          }} />
-          <Body size={13} dim>Scan with your {method === "QRIS" ? "banking app" : method} · simulating…</Body>
-        </Col>
-      )}
-      {state === "done" && (
-        <Col gap={12} style={{ alignItems: "center", padding: "6px 0 10px", textAlign: "center" }}>
-          <div style={{ width: 58, height: 58, borderRadius: "50%", background: "var(--success)", display: "flex", alignItems: "center", justifyContent: "center", animation: "tpPop .3s cubic-bezier(.2,1.4,.4,1)" }}>
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" strokeWidth="3" strokeLinecap="round"><path d="M5 13l5 5L20 7" /></svg>
-          </div>
-          <Disp size={20}>You're in! 🎾</Disp>
-          <Body size={13} dim>{ev.title} · {ev.dateLong}<br />Receipt sent to WhatsApp.</Body>
-          <Btn primary full onClick={() => A.confirmJoin(ev.id)}>Done</Btn>
-        </Col>
-      )}
-    </Sheet>
   );
 }

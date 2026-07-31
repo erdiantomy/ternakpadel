@@ -2,7 +2,7 @@ import React from "react";
 import { supabase } from "../lib/supabase.js";
 import { Disp, Body, Num, Card, Ava, Pill, Btn, Seg, Row, Col, SecHead, MicroLabel, LiveDot, HeaderPill, LeaderboardRow, Stepper, Input } from "../components/atoms.jsx";
 import { courtName } from "../lib/courts.js";
-import { errMsg } from "../lib/format.js";
+import { errMsg, initialsOf, firstName } from "../lib/format.js";
 import { sessionConfig, buildRound, matchComplete, sessionStandings } from "../lib/session.js";
 
 // Organizer's self-service session console. Lives entirely in the player app —
@@ -14,10 +14,6 @@ import { sessionConfig, buildRound, matchComplete, sessionStandings } from "../l
 //   • reorder matches (up / down)
 //   • edit format settings after generate (Americano/Mexicano, fixed partner,
 //     point/ranking, rounds, race-to / best-of) with a destructive-recompute warning
-
-const firstName = (n) => (n || "Player").trim().split(/\s+/)[0];
-const initialsOf = (n) =>
-  (n || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || "").join("") || "?";
 
 const STATUS_LABEL = { open: "Scheduled", live: "Live", paused: "Paused", done: "Finished", cancelled: "Cancelled" };
 const STATUS_COLOR = { open: "var(--text2)", live: "var(--danger)", paused: "var(--warning)", done: "var(--success)", cancelled: "var(--text2)" };

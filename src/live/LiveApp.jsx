@@ -1,6 +1,6 @@
 import React from "react";
 import { supabase } from "../lib/supabase.js";
-import { cleanCut, errMsg } from "../lib/format.js";
+import { cleanCut, errMsg, initialsOf, firstName } from "../lib/format.js";
 import { tpTheme } from "../theme.js";
 import { TabBar, Toast, Body, SkeletonScreen, ErrorState } from "../components/atoms.jsx";
 import { SettingsSheet } from "../components/SettingsSheet.jsx";
@@ -16,9 +16,6 @@ import { sessionConfig } from "../lib/session.js";
 // ---------- helpers ----------
 
 const DAYS_ID = ["MIN", "SEN", "SEL", "RAB", "KAM", "JUM", "SAB"];
-const initialsOf = (name) =>
-  (name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || "").join("") || "?";
-const firstName = (name) => (name || "Player").trim().split(/\s+/)[0];
 
 function fmtEventDates(startsAt, endsAt) {
   const d = new Date(startsAt);
@@ -461,7 +458,6 @@ export default function LiveApp() {
       window.location.href = data.invoice_url;
     },
     closePay: () => setPayBusy(false),
-    confirmJoin: () => {},
 
     checkIn: async () => {
       const ev = S.events[0];

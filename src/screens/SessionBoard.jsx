@@ -1,6 +1,7 @@
 import React from "react";
 import { supabase } from "../lib/supabase.js";
 import { tpTheme } from "../theme.js";
+import { initialsOf } from "../lib/format.js";
 import { Disp, Body, Card, Row, Col, Seg, MicroLabel, LiveDot, LeaderboardRow } from "../components/atoms.jsx";
 import { CourtBadge } from "../components/BrandMark.jsx";
 
@@ -8,9 +9,6 @@ import { CourtBadge } from "../components/BrandMark.jsx";
 // through the anon-callable session_board / club_board RPCs (0017 migration),
 // which expose only display names and scores. Polls while the session is live;
 // once the session is finished the board renders as FINAL (locked).
-
-const initialsOf = (name) =>
-  (name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || "").join("") || "?";
 
 function BoardRows({ rows, statCols }) {
   if (!rows || rows.length === 0) {

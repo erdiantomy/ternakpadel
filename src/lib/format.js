@@ -2,6 +2,11 @@
 
 export const rupiah = (n) => "Rp " + (n || 0).toLocaleString("id-ID");
 
+export const initialsOf = (name) =>
+  (name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || "").join("") || "?";
+
+export const firstName = (name) => (name || "Player").trim().split(/\s+/)[0];
+
 // Drop unpaired surrogates and truncate by whole characters (code points).
 // A lone surrogate — e.g. half an emoji left by a code-unit .slice() — makes
 // JSON.stringify emit a \udXXX escape that PostgREST rejects, so any insert

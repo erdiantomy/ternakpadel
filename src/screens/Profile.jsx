@@ -1,8 +1,7 @@
 import React from "react";
 import { Disp, Body, Num, Card, Ava, Pill, Btn, Row, Col, SecHead, Spark, Sheet, Input, MicroLabel, StatTile } from "../components/atoms.jsx";
-import { CourtBadge } from "../components/BrandMark.jsx";
 
-// Profile / career screen, share-card overlay, create-match sheet, onboarding.
+// Profile / career screen, share-card overlay, create-match sheet.
 
 export function ProfileScreen({ S, A }) {
   const me = S.me || { name: "Player", user: "", skill: "", side: "", memberSince: "", initials: "" };
@@ -266,117 +265,5 @@ export function EditProfileSheet({ open, S, A }) {
         <Btn primary full onClick={() => A.saveProfile({ full_name: fullName, bio, instagram })}>Save profile</Btn>
       </Col>
     </Sheet>
-  );
-}
-
-// ---------- Onboarding ----------
-
-export function Onboarding({ A }) {
-  const [step, setStep] = React.useState(0); // 0 register, 1 otp, 2-5 questions, 6 done
-  const [otp, setOtp] = React.useState("");
-  const [answers, setAnswers] = React.useState({});
-  React.useEffect(() => {
-    if (step === 1 && otp.length < 4) {
-      const id = setTimeout(() => setOtp(otp + "4719"[otp.length]), 420);
-      return () => clearTimeout(id);
-    }
-    if (step === 1 && otp.length === 4) {
-      const id = setTimeout(() => setStep(2), 500);
-      return () => clearTimeout(id);
-    }
-  }, [step, otp]);
-  const qs = [
-    ["Your skill level?", ["Beginner", "Intermediate", "Advanced", "Competitive"], "skill"],
-    ["Preferred side?", ["Left", "Right", "Both"], "side"],
-    ["How often do you play?", ["Weekly", "Monthly", "Competitive"], "freq"],
-    ["What are you here for?", ["Social", "Improve skills", "Competitive", "Networking"], "goal"],
-  ];
-  const field = (ph, val) => (
-    <div style={{
-      background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12,
-      padding: "13px 14px", fontFamily: "var(--font-body)", fontSize: 14,
-      color: val ? "var(--text)" : "var(--text2)",
-    }}>{val || ph}</div>
-  );
-  return (
-    <div style={{ position: "absolute", inset: 0, zIndex: 100, background: "var(--bg)", display: "flex", flexDirection: "column", padding: "calc(18px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom))" }}>
-      {step === 0 && (
-        <Col gap={12} style={{ flex: 1, justifyContent: "center" }}>
-          <CourtBadge size={46} />
-          <Disp size={28}>Ternak Padel</Disp>
-          <Body size={14} dim style={{ marginTop: -6 }}>Your padel career starts here. No passwords — ever.</Body>
-          {field("Full name", "Tomy Santoso")}
-          {field("WhatsApp number", "+62 812 9000 4123")}
-          {field("Email", "tomy@tomspadel.com")}
-          <Btn primary full onClick={() => setStep(1)}>Continue with WhatsApp</Btn>
-          <Body size={12} dim style={{ textAlign: "center" }}>We'll send a one-time code to your WhatsApp</Body>
-        </Col>
-      )}
-      {step === 1 && (
-        <Col gap={14} style={{ flex: 1, justifyContent: "center", alignItems: "center", textAlign: "center" }}>
-          <div style={{ width: 52, height: 52, borderRadius: "50%", background: "color-mix(in oklab, var(--success) 20%, var(--surface))", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>💬</div>
-          <Disp size={21}>Check WhatsApp</Disp>
-          <Body size={13} dim style={{ marginTop: -6 }}>Code sent to +62 812 •••• 4123 — auto-filling for the demo</Body>
-          <Row gap={9}>
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} style={{
-                width: 46, height: 54, borderRadius: 12,
-                border: "1.5px solid " + (otp.length > i ? "var(--accent)" : "var(--line)"),
-                background: "var(--surface)", display: "flex", alignItems: "center", justifyContent: "center",
-                fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700, color: "var(--text)",
-              }}>{otp[i] || ""}</div>
-            ))}
-          </Row>
-          <Body size={12} dim>Didn't get it? Resend in 0:24</Body>
-        </Col>
-      )}
-      {step >= 2 && step <= 5 && (() => {
-        const [q, opts, key] = qs[step - 2];
-        return (
-          <Col gap={12} style={{ flex: 1, paddingTop: 16 }}>
-            <Row gap={5}>
-              {qs.map((_, i) => (
-                <div key={i} style={{ flex: 1, height: 4, borderRadius: 3, background: i <= step - 2 ? "var(--accent)" : "var(--line)" }} />
-              ))}
-            </Row>
-            <Disp size={23} style={{ marginTop: 10 }}>{q}</Disp>
-            <Col gap={9} style={{ marginTop: 6 }}>
-              {opts.map((o) => (
-                <Card key={o} accent={answers[key] === o} onClick={() => {
-                  setAnswers({ ...answers, [key]: o });
-                  setTimeout(() => setStep(step + 1), 240);
-                }}>
-                  <Body size={15} bold>{o}</Body>
-                </Card>
-              ))}
-            </Col>
-            <button onClick={() => setStep(step + 1)} style={{ marginTop: "auto", background: "none", border: "none", color: "var(--text2)", fontFamily: "var(--font-body)", fontSize: 13, cursor: "pointer" }}>Skip</button>
-          </Col>
-        );
-      })()}
-      {step === 6 && (
-        <Col gap={13} style={{ flex: 1, justifyContent: "center", alignItems: "center", textAlign: "center" }}>
-          <Ava ini="TS" d={68} ring />
-          <Disp size={24}>@tomy</Disp>
-          <Row gap={6}>
-            <Pill small on>{answers.skill || "Intermediate"}</Pill>
-            <Pill small on>{answers.side || "Left"} side</Pill>
-          </Row>
-          <Card accent style={{ width: "100%", boxSizing: "border-box" }}>
-            <Row gap={10}>
-              <div style={{ fontSize: 26 }}>🏅</div>
-              <Col gap={1} style={{ textAlign: "left" }}>
-                <Body size={14} bold>First badge: Rookie</Body>
-                <Body size={12} dim>Your padel career starts now. Nothing is deleted — everything accumulates.</Body>
-              </Col>
-            </Row>
-          </Card>
-          <Btn primary full onClick={A.finishOnboarding}>Find your first match</Btn>
-        </Col>
-      )}
-      {step < 6 && (
-        <button onClick={A.finishOnboarding} style={{ position: "absolute", top: "calc(16px + env(safe-area-inset-top))", right: 18, background: "none", border: "none", color: "var(--text2)", fontFamily: "var(--font-body)", fontSize: 13, cursor: "pointer" }}>Skip demo →</button>
-      )}
-    </div>
   );
 }

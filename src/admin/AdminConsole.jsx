@@ -1,6 +1,7 @@
 import React from "react";
 import { supabase } from "../lib/supabase.js";
 import { tpTheme } from "../theme.js";
+import { rupiah, initialsOf } from "../lib/format.js";
 import { CourtBadge } from "../components/BrandMark.jsx";
 import { VENUE_DEFAULT, courtName } from "../lib/courts.js";
 
@@ -11,9 +12,8 @@ import { VENUE_DEFAULT, courtName } from "../lib/courts.js";
 // and grant host/admin.
 
 const THEME = { theme: "dark", accent: "#C4F22E", font: "brand", density: "comfy" };
-const idr = (n) => "Rp" + (n || 0).toLocaleString("id-ID");
-const initials = (name) =>
-  (name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || "").join("") || "?";
+const idr = rupiah;
+const initials = initialsOf;
 const fmt = (iso, withTime = true) =>
   iso ? new Date(iso).toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", ...(withTime ? { hour: "2-digit", minute: "2-digit" } : {}) }) : "—";
 
